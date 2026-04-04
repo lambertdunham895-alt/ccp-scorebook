@@ -262,6 +262,7 @@ select.form-input{appearance:none;}
   <div class="tab active" onclick="showTab('scorecard')" id="tab-scorecard"><span class="tab-icon">📋</span>Scorecard</div>
   <div class="tab" onclick="showTab('log')" id="tab-log"><span class="tab-icon">📝</span>Play Log</div>
   <div class="tab" onclick="showTab('stats')" id="tab-stats"><span class="tab-icon">📊</span>Stats</div>
+  <div class="tab" onclick="showTab('pitching')" id="tab-pitching"><span class="tab-icon">⚾</span>Pitching</div>
   <div class="tab" onclick="showTab('lineup')" id="tab-lineup"><span class="tab-icon">👤</span>Lineup</div>
   <div class="tab" onclick="showTab('history')" id="tab-history"><span class="tab-icon">🗂</span>History</div>
   <div class="tab" onclick="showTab('guide')" id="tab-guide"><span class="tab-icon">📖</span>Guide</div>
@@ -313,6 +314,38 @@ select.form-input{appearance:none;}
       <div class="section-title">Lineup</div>
     </div>
     <div id="lineupList"><p style="color:var(--gray);font-size:13px;text-align:center;padding:32px 0;">Add players to build your batting order.</p></div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PITCHING PAGE ═══════════════════ -->
+<div class="page" id="page-pitching">
+  <div class="pad">
+
+    <!-- Team toggle -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button id="ptHomeBtn" class="btn btn-secondary" style="flex:1;border:2px solid var(--accent);color:var(--accent);" onclick="showPitchingTeam('home')">▲ Home</button>
+      <button id="ptAwayBtn" class="btn btn-secondary" style="flex:1;" onclick="showPitchingTeam('away')">▼ Away</button>
+    </div>
+
+    <!-- Add pitcher -->
+    <div class="card" style="padding:12px;">
+      <div class="card-title">⚾ Add Pitcher</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;">
+        <div style="flex:1;">
+          <label class="form-label">Pitcher Name</label>
+          <input class="form-input" id="ptName" placeholder="First Last" style="font-size:15px;">
+        </div>
+        <div style="width:70px;">
+          <label class="form-label">Jersey #</label>
+          <input class="form-input" id="ptNum" type="number" placeholder="22" style="font-size:15px;">
+        </div>
+        <button class="btn btn-primary" style="flex-shrink:0;padding:9px 14px;" onclick="addPitcher()">Add</button>
+      </div>
+    </div>
+
+    <!-- Pitcher list -->
+    <div id="pitcherList"></div>
+
   </div>
 </div>
 
@@ -558,6 +591,109 @@ select.form-input{appearance:none;}
   </div>
 </div>
 
+<!-- ═══════════════════ PITCHER STATS MODAL ═══════════════════ -->
+<div class="modal-overlay" id="pitcherStatsModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div id="pitcherStatsContent"></div>
+    <button class="btn btn-secondary" style="width:100%;margin-top:12px;" onclick="closeModal('pitcherStatsModal')">Close</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ LIVE PITCH COUNTER MODAL ═══════════════════ -->
+<div class="modal-overlay" id="pitchCountModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="pcModalTitle">Pitch Count</div>
+
+    <!-- Count display -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;text-align:center;">
+      <div style="background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.3);border-radius:10px;padding:12px 8px;">
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:6px;">Balls</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:var(--green);line-height:1;" id="pcBalls">0</div>
+        <div style="display:flex;gap:6px;justify-content:center;margin-top:8px;">
+          <button onclick="adjCount('balls',-1)" style="width:32px;height:32px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--white);font-size:18px;cursor:pointer;">−</button>
+          <button onclick="adjCount('balls',1)" style="width:32px;height:32px;border-radius:7px;border:none;background:var(--green);color:#fff;font-size:18px;cursor:pointer;">+</button>
+        </div>
+      </div>
+      <div style="background:rgba(229,57,53,.08);border:1px solid rgba(229,57,53,.3);border-radius:10px;padding:12px 8px;">
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:6px;">Strikes</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:var(--red);line-height:1;" id="pcStrikes">0</div>
+        <div style="display:flex;gap:6px;justify-content:center;margin-top:8px;">
+          <button onclick="adjCount('strikes',-1)" style="width:32px;height:32px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--white);font-size:18px;cursor:pointer;">−</button>
+          <button onclick="adjCount('strikes',1)" style="width:32px;height:32px;border-radius:7px;border:none;background:var(--red);color:#fff;font-size:18px;cursor:pointer;">+</button>
+        </div>
+      </div>
+      <div style="background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.3);border-radius:10px;padding:12px 8px;">
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:6px;">Total</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:var(--accent);line-height:1;" id="pcTotal">0</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:14px;">auto-calculated</div>
+      </div>
+    </div>
+
+    <!-- Stats counters -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+      <div class="card" style="padding:10px;text-align:center;">
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:5px;">Hits Allowed</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--white);margin-bottom:5px;" id="pcHits">0</div>
+        <div style="display:flex;gap:5px;justify-content:center;">
+          <button onclick="adjPitchStat('hits',-1)" style="width:30px;height:30px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--white);font-size:16px;cursor:pointer;">−</button>
+          <button onclick="adjPitchStat('hits',1)" style="width:30px;height:30px;border-radius:6px;border:none;background:var(--blue2);color:#fff;font-size:16px;cursor:pointer;">+</button>
+        </div>
+      </div>
+      <div class="card" style="padding:10px;text-align:center;">
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:5px;">Walks (BB)</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--white);margin-bottom:5px;" id="pcWalks">0</div>
+        <div style="display:flex;gap:5px;justify-content:center;">
+          <button onclick="adjPitchStat('walks',-1)" style="width:30px;height:30px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--white);font-size:16px;cursor:pointer;">−</button>
+          <button onclick="adjPitchStat('walks',1)" style="width:30px;height:30px;border-radius:6px;border:none;background:var(--blue2);color:#fff;font-size:16px;cursor:pointer;">+</button>
+        </div>
+      </div>
+      <div class="card" style="padding:10px;text-align:center;">
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:5px;">Strikeouts</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--green);margin-bottom:5px;" id="pcKs">0</div>
+        <div style="display:flex;gap:5px;justify-content:center;">
+          <button onclick="adjPitchStat('ks',-1)" style="width:30px;height:30px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--white);font-size:16px;cursor:pointer;">−</button>
+          <button onclick="adjPitchStat('ks',1)" style="width:30px;height:30px;border-radius:6px;border:none;background:var(--green);color:#fff;font-size:16px;cursor:pointer;">+</button>
+        </div>
+      </div>
+      <div class="card" style="padding:10px;text-align:center;">
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:5px;">Runs Allowed</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--red);margin-bottom:5px;" id="pcRuns">0</div>
+        <div style="display:flex;gap:5px;justify-content:center;">
+          <button onclick="adjPitchStat('runs',-1)" style="width:30px;height:30px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--white);font-size:16px;cursor:pointer;">−</button>
+          <button onclick="adjPitchStat('runs',1)" style="width:30px;height:30px;border-radius:6px;border:none;background:var(--red);color:#fff;font-size:16px;cursor:pointer;">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Innings pitched -->
+    <div style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:3px;">Innings Pitched</div>
+        <div style="font-size:11px;color:var(--gray);">Tap +/− to adjust (each out = 0.1)</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button onclick="adjPitchStat('outs',-1)" style="width:36px;height:36px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--white);font-size:20px;cursor:pointer;">−</button>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--accent);min-width:44px;text-align:center;" id="pcIP">0.0</div>
+        <button onclick="adjPitchStat('outs',1)" style="width:36px;height:36px;border-radius:8px;border:none;background:var(--accent);color:var(--navy);font-size:20px;cursor:pointer;">+</button>
+      </div>
+    </div>
+
+    <!-- ERA display -->
+    <div style="background:linear-gradient(135deg,var(--blue),#0e2347);border:1px solid var(--accent);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;">
+      <div style="font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:4px;">Earned Run Average (ERA)</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:800;color:var(--white);line-height:1;" id="pcERA">—</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:4px;">(Earned Runs × 7) ÷ Innings Pitched</div>
+    </div>
+
+    <div class="flex-row" style="gap:10px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="savePitcherStats()">Save Stats</button>
+      <button class="btn btn-secondary" onclick="closeModal('pitchCountModal')">Done</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -636,6 +772,7 @@ function renderAll(){
   renderHistory();
   renderStatsTable();
   buildGuide();
+  renderPitcherList();
 }
 
 // ══════════════════════════════════════════════
@@ -1245,7 +1382,7 @@ function resetGame(){
 
 function confirmResetGame(){
   const sg=G.savedGames||[];
-  G={homeName:G.homeName,awayName:G.awayName,totalInnings:G.totalInnings,gameDate:G.gameDate,currentInning:1,currentHalf:'top',homeCells:[],awayCells:[],homeLineup:[...G.homeLineup],awayLineup:[...G.awayLineup],homeBatterIdx:0,awayBatterIdx:0,playLog:[],savedGames:sg};
+  G={homeName:G.homeName,awayName:G.awayName,totalInnings:G.totalInnings,gameDate:G.gameDate,currentInning:1,currentHalf:'top',homeCells:[],awayCells:[],homeLineup:[...G.homeLineup],awayLineup:[...G.awayLineup],homeBatterIdx:0,awayBatterIdx:0,playLog:[],homePitchers:[],awayPitchers:[],savedGames:sg};
   ensureCells();
   closeModal('resetConfirmModal');
   closeModal('setupModal');
@@ -1405,6 +1542,8 @@ function saveGame(){
     awayLineup:JSON.parse(JSON.stringify(G.awayLineup)),
     homeCells:JSON.parse(JSON.stringify(G.homeCells)),
     awayCells:JSON.parse(JSON.stringify(G.awayCells)),
+    homePitchers:JSON.parse(JSON.stringify(G.homePitchers||[])),
+    awayPitchers:JSON.parse(JSON.stringify(G.awayPitchers||[])),
     playLog:[...(G.playLog||[])],
     savedAt:new Date().toISOString()
   });
@@ -1983,6 +2122,234 @@ function buildGuide() {
     block.appendChild(body);
     wrap.appendChild(block);
   });
+}
+
+// ══════════════════════════════════════════════
+//  PITCHING SYSTEM
+// ══════════════════════════════════════════════
+let pitchingTeam = 'home';
+let activePitcherKey = null; // "home-0", "away-1" etc
+
+// G.homePitchers / G.awayPitchers = array of pitcher objects:
+// { name, num, balls, strikes, hits, walks, ks, runs, outs }
+// outs = total outs recorded (for IP calculation)
+
+function ensurePitchers() {
+  if (!G.homePitchers) G.homePitchers = [];
+  if (!G.awayPitchers) G.awayPitchers = [];
+}
+
+function showPitchingTeam(team) {
+  pitchingTeam = team;
+  const hb = document.getElementById('ptHomeBtn');
+  const ab = document.getElementById('ptAwayBtn');
+  hb.style.borderColor = team==='home' ? 'var(--accent)' : 'var(--border)';
+  hb.style.color       = team==='home' ? 'var(--accent)' : 'var(--white)';
+  ab.style.borderColor = team==='away' ? 'var(--accent)' : 'var(--border)';
+  ab.style.color       = team==='away' ? 'var(--accent)' : 'var(--white)';
+  renderPitcherList();
+}
+
+function addPitcher() {
+  ensurePitchers();
+  const name = document.getElementById('ptName').value.trim();
+  if (!name) { showToast('Enter a pitcher name'); return; }
+  const num = document.getElementById('ptNum').value.trim();
+  const pitcher = { name, num, balls:0, strikes:0, hits:0, walks:0, ks:0, runs:0, outs:0 };
+  if (pitchingTeam === 'home') G.homePitchers.push(pitcher);
+  else G.awayPitchers.push(pitcher);
+  document.getElementById('ptName').value = '';
+  document.getElementById('ptNum').value = '';
+  persist(); renderPitcherList();
+  showToast(name + ' added as pitcher');
+}
+
+function removePitcher(team, idx) {
+  const list = team==='home' ? G.homePitchers : G.awayPitchers;
+  if (!confirm('Remove ' + list[idx].name + '?')) return;
+  list.splice(idx, 1);
+  persist(); renderPitcherList();
+}
+
+function renderPitcherList() {
+  ensurePitchers();
+  const wrap = document.getElementById('pitcherList');
+  if (!wrap) return;
+  const list = pitchingTeam==='home' ? G.homePitchers : G.awayPitchers;
+  const teamName = pitchingTeam==='home' ? G.homeName : G.awayName;
+
+  if (!list.length) {
+    wrap.innerHTML = `<div style="text-align:center;padding:32px 0;color:var(--gray);font-size:13px;">No pitchers added for ${teamName}.<br>Add one above.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = '';
+  list.forEach((p, i) => {
+    const ip = outsToIP(p.outs);
+    const era = calcERA(p.runs, p.outs);
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.marginBottom = '10px';
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:38px;height:38px;background:var(--blue2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--accent);">${p.num||'#'}</div>
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;text-transform:uppercase;">${p.name}</div>
+            <div style="font-size:11px;color:var(--gray);">IP: ${ip} · ERA: <span style="color:${eraColor(era)};font-weight:700;">${era}</span></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-primary btn-sm" onclick="openPitchCounter('${pitchingTeam}',${i})">⚾ Count</button>
+          <button class="btn btn-secondary btn-sm" onclick="openPitcherStatsModal('${pitchingTeam}',${i})">📊</button>
+          <button class="btn btn-danger btn-sm" onclick="removePitcher('${pitchingTeam}',${i})">✕</button>
+        </div>
+      </div>
+      <!-- Mini stat bar -->
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;text-align:center;">
+        ${[['Pitches',p.balls+p.strikes],['Balls',p.balls],['Strikes',p.strikes],['K',p.ks],['BB',p.walks],['R',p.runs]].map(([l,v])=>`
+          <div style="background:var(--card2);border-radius:6px;padding:5px 2px;">
+            <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:.08em;">${l}</div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--white);">${v}</div>
+          </div>`).join('')}
+      </div>`;
+    wrap.appendChild(card);
+  });
+}
+
+function outsToIP(outs) {
+  const full = Math.floor(outs / 3);
+  const rem = outs % 3;
+  return full + '.' + rem;
+}
+
+function calcERA(runs, outs) {
+  if (outs === 0) return '—';
+  const ip = outs / 3;
+  // Little League uses 6 innings, adjust based on G.totalInnings
+  const gamesInnings = G.totalInnings || 6;
+  const era = (runs * gamesInnings) / ip;
+  return era.toFixed(2);
+}
+
+function eraColor(era) {
+  if (era === '—') return 'var(--gray)';
+  const n = parseFloat(era);
+  if (n < 2.00) return 'var(--green)';
+  if (n < 4.00) return 'var(--white)';
+  return 'var(--red)';
+}
+
+// ── Live Pitch Counter ──
+function openPitchCounter(team, idx) {
+  ensurePitchers();
+  activePitcherKey = team + '-' + idx;
+  const p = (team==='home' ? G.homePitchers : G.awayPitchers)[idx];
+  document.getElementById('pcModalTitle').textContent = '⚾ ' + p.name + (p.num ? ' #'+p.num : '');
+  updatePitchCountDisplay(p);
+  openModal('pitchCountModal');
+}
+
+function getActivePitcher() {
+  if (!activePitcherKey) return null;
+  const [team, idx] = activePitcherKey.split('-');
+  const list = team==='home' ? G.homePitchers : G.awayPitchers;
+  return list[parseInt(idx)];
+}
+
+function adjCount(type, delta) {
+  const p = getActivePitcher();
+  if (!p) return;
+  if (type === 'balls') p.balls = Math.max(0, p.balls + delta);
+  if (type === 'strikes') p.strikes = Math.max(0, p.strikes + delta);
+  updatePitchCountDisplay(p);
+  persist();
+}
+
+function adjPitchStat(stat, delta) {
+  const p = getActivePitcher();
+  if (!p) return;
+  if (stat === 'hits') p.hits = Math.max(0, p.hits + delta);
+  if (stat === 'walks') p.walks = Math.max(0, p.walks + delta);
+  if (stat === 'ks') p.ks = Math.max(0, p.ks + delta);
+  if (stat === 'runs') p.runs = Math.max(0, p.runs + delta);
+  if (stat === 'outs') p.outs = Math.max(0, p.outs + delta);
+  updatePitchCountDisplay(p);
+  persist();
+}
+
+function updatePitchCountDisplay(p) {
+  const total = p.balls + p.strikes;
+  document.getElementById('pcBalls').textContent = p.balls;
+  document.getElementById('pcStrikes').textContent = p.strikes;
+  document.getElementById('pcTotal').textContent = total;
+  document.getElementById('pcHits').textContent = p.hits;
+  document.getElementById('pcWalks').textContent = p.walks;
+  document.getElementById('pcKs').textContent = p.ks;
+  document.getElementById('pcRuns').textContent = p.runs;
+  document.getElementById('pcIP').textContent = outsToIP(p.outs);
+  const era = calcERA(p.runs, p.outs);
+  const eraEl = document.getElementById('pcERA');
+  eraEl.textContent = era;
+  eraEl.style.color = eraColor(era);
+}
+
+function savePitcherStats() {
+  persist();
+  renderPitcherList();
+  closeModal('pitchCountModal');
+  showToast('Pitching stats saved');
+}
+
+// ── Pitcher Stats Popup ──
+function openPitcherStatsModal(team, idx) {
+  ensurePitchers();
+  const list = team==='home' ? G.homePitchers : G.awayPitchers;
+  const p = list[idx];
+  if (!p) return;
+  const ip = outsToIP(p.outs);
+  const era = calcERA(p.runs, p.outs);
+  const total = p.balls + p.strikes;
+
+  const row = (label, val, color) => `
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:9px 10px;font-size:13px;color:var(--gray);font-family:Inter,sans-serif;">${label}</td>
+      <td style="padding:9px 10px;text-align:center;font-family:'Barlow Condensed',monospace;font-size:16px;font-weight:800;color:${color||'var(--white)'};">${val}</td>
+    </tr>`;
+
+  document.getElementById('pitcherStatsContent').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+      <div style="width:46px;height:46px;background:var(--blue2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent);">${p.num||'#'}</div>
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;">${p.name}</div>
+        <div style="font-size:11px;color:var(--gray);">${team==='home'?G.homeName:G.awayName} · Pitcher</div>
+      </div>
+    </div>
+
+    <!-- ERA hero -->
+    <div style="background:linear-gradient(135deg,var(--blue),#0e2347);border:1px solid var(--accent);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;">
+      <div style="font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:4px;">ERA</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:800;color:${eraColor(era)};line-height:1;">${era}</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:4px;">${ip} innings pitched</div>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;">
+      <tbody>
+        ${row('Total Pitches', total, 'var(--accent)')}
+        ${row('Balls', p.balls, 'var(--green)')}
+        ${row('Strikes', p.strikes, 'var(--red)')}
+        ${row('Innings Pitched', ip)}
+        ${row('Hits Allowed', p.hits)}
+        ${row('Walks (BB)', p.walks)}
+        ${row('Strikeouts (K)', p.ks, 'var(--green)')}
+        ${row('Runs Allowed', p.runs, p.runs > 0 ? 'var(--red)' : 'var(--white)')}
+      </tbody>
+    </table>
+    <div style="margin-top:10px;text-align:center;">
+      <button class="btn btn-primary btn-sm" onclick="closeModal('pitcherStatsModal');openPitchCounter('${team}',${idx});">⚾ Open Live Counter</button>
+    </div>`;
+
+  openModal('pitcherStatsModal');
 }
 
 init();
