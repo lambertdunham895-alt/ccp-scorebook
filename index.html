@@ -644,8 +644,8 @@ function renderAll(){
 function renderBanner(){
   document.getElementById('bannerHome').textContent=G.homeName;
   document.getElementById('bannerAway').textContent=G.awayName;
-  document.getElementById('bannerHomeScore').textContent=calcScore('home');
-  document.getElementById('bannerAwayScore').textContent=calcScore('away');
+  document.getElementById('bannerHomeScore').textContent=totalRuns('home');
+  document.getElementById('bannerAwayScore').textContent=totalRuns('away');
   const half=G.currentHalf==='top'?'▲':'▼';
   document.getElementById('bannerInning').textContent=`INN ${G.currentInning} ${half}`;
 }
