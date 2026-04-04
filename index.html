@@ -914,7 +914,14 @@ function getBaseSegments(result,baseTo,scored,outSeq){
   if(result==='HR'){reachedBases.push('first','second','third','home');}
   else if(result==='3B'){reachedBases.push('first','second','third');}
   else if(result==='2B'){reachedBases.push('first','second');}
-  else if(result==='1B'||result==='BB'||result==='HBP'||result==='FC'||result==='E'){reachedBases.push('first');}
+  else if(result==='1B'||result==='BB'||result==='HBP'){reachedBases.push('first');}
+  else if(result==='FC'||result==='E'){
+    // Use baseTo so batter can reach 2B or 3B on an error
+    if(baseTo==='2B')reachedBases.push('first','second');
+    else if(baseTo==='3B')reachedBases.push('first','second','third');
+    else if(baseTo==='Home')reachedBases.push('first','second','third','home');
+    else reachedBases.push('first');
+  }
   else if(result==='SAC'||result==='SF'){/* batter out, runners advance — just mark the path taken by batter briefly */}
   else if(baseTo){
     if(baseTo==='1B')reachedBases.push('first');
@@ -1123,7 +1130,13 @@ function getBaseSegmentsForPreview(result,baseTo,scored){
   if(result==='HR')reached.push('first','second','third','home');
   else if(result==='3B')reached.push('first','second','third');
   else if(result==='2B')reached.push('first','second');
-  else if(['1B','BB','HBP','FC','E'].includes(result))reached.push('first');
+  else if(result==='1B'||result==='BB'||result==='HBP')reached.push('first');
+  else if(result==='FC'||result==='E'){
+    if(baseTo==='2B')reached.push('first','second');
+    else if(baseTo==='3B')reached.push('first','second','third');
+    else if(baseTo==='Home')reached.push('first','second','third','home');
+    else reached.push('first');
+  }
   else if(baseTo){
     if(baseTo==='1B')reached.push('first');
     else if(baseTo==='2B')reached.push('first','second');
