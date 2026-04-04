@@ -570,7 +570,7 @@ const HITS=['1B','2B','3B','HR'];
 const WALKS=['BB','HBP','SAC','SF','FC','E'];
 const OUTS_LIST=['K','Kl','GO','FO','LO','DP','E','FC'];
 const NEEDS_FIELDER=['GO','FO','LO','DP','E','FC','SAC','SF'];
-const SHOW_BASES=['1B','2B','3B','HR','BB','HBP','SAC','SF','FC','E'];
+const SHOW_BASES=['1B','2B','3B','HR','BB','HBP','SAC','SF'];
 
 // Diamond path coords (SVG 88x88 viewBox)
 // Home=bottom, 1B=right, 2B=top, 3B=left
@@ -985,6 +985,8 @@ function openAtBat(team,playerIdx,inning){
 
 function selectResult(code,el){
   AB.result=code;AB.outSeq=[];AB.baseTo=null;
+  // E and FC always reach 1st — set automatically
+  if(code==='E'||code==='FC') AB.baseTo='1B';
   document.querySelectorAll('.result-btn').forEach(b=>b.classList.remove('sel'));
   el.classList.add('sel');
   showFielderOrBase(code);
