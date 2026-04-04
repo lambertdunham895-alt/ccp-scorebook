@@ -570,7 +570,7 @@ const HITS=['1B','2B','3B','HR'];
 const WALKS=['BB','HBP','SAC','SF','FC','E'];
 const OUTS_LIST=['K','Kl','GO','FO','LO','DP','E','FC'];
 const NEEDS_FIELDER=['GO','FO','LO','DP','E','FC','SAC','SF'];
-const SHOW_BASES=['1B','2B','3B','HR','BB','HBP','SAC','SF'];
+const SHOW_BASES=['1B','2B','3B','HR','BB','HBP','SAC','SF','E'];
 
 // Diamond path coords (SVG 88x88 viewBox)
 // Home=bottom, 1B=right, 2B=top, 3B=left
@@ -1006,6 +1006,9 @@ function showFielderOrBase(code){
   if(SHOW_BASES.includes(code)){
     const wrap=document.getElementById('baseProgressBtns');
     wrap.innerHTML='';
+    // Update label — for E, batter can advance past 1B
+    const baseLabel = document.querySelector('#baseSection .result-section-label');
+    if(baseLabel) baseLabel.textContent = code==='E' ? 'Batter reached (1B default — change if they advanced further)' : 'Batter reached / advanced to';
     const bases=['1B','2B','3B','Home'];
     bases.forEach(b=>{
       const btn=document.createElement('div');
