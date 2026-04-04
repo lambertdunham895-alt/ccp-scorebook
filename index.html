@@ -1467,40 +1467,16 @@ async function scanLineupPhoto(event) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        // routed via edge function
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: file.type || 'image/jpeg', data: base64 }
-            },
-            {
-              type: 'text',
-              text: `This is a handwritten baseball lineup card. Extract every player from the batting order.
-Return ONLY a JSON array, no other text, no markdown, no backticks. Example format:
-[{"num":"7","name":"Jake Smith"},{"num":"14","name":"Connor Lee"}]
-If no jersey number is visible for a player, use "". Include every player you can read.`
-            }
-          ]
-        }]
+        imageBase64: base64,
+        mediaType: file.type || 'image/jpeg'
       })
     });
 
     const data = await response.json();
-    const raw = data.content?.[0]?.text?.trim() || '';
 
-    // Parse JSON
-    let players;
-    try {
-      players = JSON.parse(raw);
-    } catch(e) {
-      // Try to extract JSON array if wrapped in anything
-      const match = raw.match(/\[[\s\S]*\]/);
-      if (match) players = JSON.parse(match[0]);
-      else throw new Error('Could not parse player list');
-    }
+    if (!response.ok || data.error) throw new Error(data.error || 'Server error');
+
+    const players = data.players;
 
     if (!Array.isArray(players) || players.length === 0) {
       status.innerHTML = '⚠️ No players found. Try a clearer photo or add manually below.';
@@ -1508,8 +1484,8 @@ If no jersey number is visible for a player, use "". Include every player you ca
     }
 
     scannedPlayersList = players;
-    status.innerHTML = `✅ Found <strong>${players.length} player${players.length > 1 ? 's' : ''}</strong> — review below`;
     status.style.color = 'var(--green)';
+    status.innerHTML = `✅ Found <strong>${players.length} player${players.length > 1 ? 's' : ''}</strong> — review below`;
 
     // Render scanned list
     const container = document.getElementById('scannedPlayers');
@@ -1517,9 +1493,9 @@ If no jersey number is visible for a player, use "". Include every player you ca
     players.forEach((p, i) => {
       const row = document.createElement('div');
       row.id = 'sp-' + i;
-      row.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:5px;';
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;margin-bottom:5px;';
       row.innerHTML = `
-        <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:var(--accent);width:28px;text-align:center;">${i + 1}</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--accent);width:28px;text-align:center;">${i + 1}</div>
         <div style="flex:1;">
           <div style="font-size:14px;font-weight:600;">${p.name || '—'}</div>
           ${p.num ? `<div style="font-size:11px;color:var(--gray);">#${p.num}</div>` : ''}
