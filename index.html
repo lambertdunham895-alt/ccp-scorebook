@@ -270,6 +270,19 @@ select.form-input{appearance:none;}
 
 <!-- ═══════════════════ SCORECARD PAGE ═══════════════════ -->
 <div class="page active" id="page-scorecard">
+
+  <!-- Active Pitcher Banner -->
+  <div id="activePitcherBanner" onclick="openChangePitcherModal()" style="display:none;background:linear-gradient(135deg,#0e2347,#162d55);border-bottom:1px solid var(--border2);padding:8px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-size:18px;">⚾</div>
+      <div>
+        <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:700;">Now Pitching</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--white);" id="activePitcherName">— None Selected —</div>
+      </div>
+    </div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;">Change ›</div>
+  </div>
+
   <div class="scorecard-wrap" id="scorecardWrap">
     <table class="scorecard" id="scorecardTable"></table>
   </div>
@@ -380,7 +393,7 @@ select.form-input{appearance:none;}
 
     <!-- Result type -->
     <div class="result-section">
-      <div class="result-section-label">Result</div>
+      <div class="result-section-label">Result — Batter</div>
       <div class="result-grid">
         <div class="result-btn hit" onclick="selectResult('1B',this)">1B</div>
         <div class="result-btn hit" onclick="selectResult('2B',this)">2B</div>
@@ -394,10 +407,19 @@ select.form-input{appearance:none;}
         <div class="result-btn out-r" onclick="selectResult('Kl',this)">K̲</div>
         <div class="result-btn out-r" onclick="selectResult('GO',this)">GO</div>
         <div class="result-btn out-r" onclick="selectResult('FO',this)">FO</div>
+        <div class="result-btn out-r" onclick="selectResult('fO',this)">fO</div>
         <div class="result-btn out-r" onclick="selectResult('LO',this)">LO</div>
         <div class="result-btn out-r" onclick="selectResult('DP',this)">DP</div>
         <div class="result-btn out-r" onclick="selectResult('E',this)">E</div>
         <div class="result-btn out-r" onclick="selectResult('FC',this)">FC</div>
+      </div>
+      <div class="result-section-label" style="margin-top:10px;">Runner Events (no new batter)</div>
+      <div class="result-grid">
+        <div class="result-btn misc" onclick="selectResult('SB',this)">SB</div>
+        <div class="result-btn out-r" onclick="selectResult('CS',this)">CS</div>
+        <div class="result-btn misc" onclick="selectResult('WP',this)">WP</div>
+        <div class="result-btn misc" onclick="selectResult('PB',this)">PB</div>
+        <div class="result-btn misc" onclick="selectResult('BK',this)">BK</div>
       </div>
     </div>
 
@@ -609,7 +631,7 @@ select.form-input{appearance:none;}
     <!-- Count display -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;text-align:center;">
       <div style="background:rgba(0,200,83,.08);border:1px solid rgba(0,200,83,.3);border-radius:10px;padding:12px 8px;">
-        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:6px;">Balls</div>
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:6px;">Balls <span style="color:var(--gray);font-size:8px;">(this batter)</span></div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:var(--green);line-height:1;" id="pcBalls">0</div>
         <div style="display:flex;gap:6px;justify-content:center;margin-top:8px;">
           <button onclick="adjCount('balls',-1)" style="width:32px;height:32px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--white);font-size:18px;cursor:pointer;">−</button>
@@ -617,7 +639,7 @@ select.form-input{appearance:none;}
         </div>
       </div>
       <div style="background:rgba(229,57,53,.08);border:1px solid rgba(229,57,53,.3);border-radius:10px;padding:12px 8px;">
-        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:6px;">Strikes</div>
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:6px;">Strikes <span style="color:var(--gray);font-size:8px;">(this batter)</span></div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:var(--red);line-height:1;" id="pcStrikes">0</div>
         <div style="display:flex;gap:6px;justify-content:center;margin-top:8px;">
           <button onclick="adjCount('strikes',-1)" style="width:32px;height:32px;border-radius:7px;border:1px solid var(--border2);background:var(--card2);color:var(--white);font-size:18px;cursor:pointer;">−</button>
@@ -625,7 +647,7 @@ select.form-input{appearance:none;}
         </div>
       </div>
       <div style="background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.3);border-radius:10px;padding:12px 8px;">
-        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:6px;">Total</div>
+        <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:6px;">Total <span style="color:var(--gray);font-size:8px;">(game)</span></div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:var(--accent);line-height:1;" id="pcTotal">0</div>
         <div style="font-size:10px;color:var(--gray);margin-top:14px;">auto-calculated</div>
       </div>
@@ -682,15 +704,36 @@ select.form-input{appearance:none;}
 
     <!-- ERA display -->
     <div style="background:linear-gradient(135deg,var(--blue),#0e2347);border:1px solid var(--accent);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;">
-      <div style="font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:4px;">Earned Run Average (ERA)</div>
+      <div style="display:flex;justify-content:center;gap:6px;margin-bottom:8px;">
+        <span id="pcOut1" style="width:18px;height:18px;border-radius:50%;border:2px solid var(--gray);display:inline-block;transition:background .2s;"></span>
+        <span id="pcOut2" style="width:18px;height:18px;border-radius:50%;border:2px solid var(--gray);display:inline-block;transition:background .2s;"></span>
+        <span id="pcOut3" style="width:18px;height:18px;border-radius:50%;border:2px solid var(--gray);display:inline-block;transition:background .2s;"></span>
+      </div>
+      <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;" id="pcOutLabel">0 outs this half</div>
+      <div style="font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.12em;font-weight:700;margin-bottom:4px;">ERA</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:800;color:var(--white);line-height:1;" id="pcERA">—</div>
       <div style="font-size:11px;color:var(--gray);margin-top:4px;">(Earned Runs × 7) ÷ Innings Pitched</div>
     </div>
 
     <div class="flex-row" style="gap:10px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="nextBatterPitchCount()">Next Batter ▶</button>
       <button class="btn btn-primary" style="flex:1;" onclick="savePitcherStats()">Save Stats</button>
       <button class="btn btn-secondary" onclick="closeModal('pitchCountModal')">Done</button>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ CHANGE PITCHER MODAL ═══════════════════ -->
+<div class="modal-overlay" id="changePitcherModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⚾ Select Active Pitcher</div>
+    <p style="font-size:13px;color:var(--gray);margin-bottom:12px;">All plays logged on the scorecard will automatically update this pitcher's stats.</p>
+    <div id="changePitcherList"></div>
+    <div style="margin-top:10px;">
+      <button class="btn btn-secondary" style="width:100%;" onclick="clearActivePitcher()">✕ No Active Pitcher</button>
+    </div>
+    <button class="btn btn-secondary" style="width:100%;margin-top:8px;" onclick="closeModal('changePitcherModal')">Cancel</button>
   </div>
 </div>
 
@@ -701,12 +744,13 @@ select.form-input{appearance:none;}
 //  CONSTANTS
 // ══════════════════════════════════════════════
 const POS_NAMES={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF'};
-const RESULT_LABELS={'1B':'Single','2B':'Double','3B':'Triple','HR':'Home Run','BB':'Walk','HBP':'Hit by Pitch','SAC':'Sacrifice Bunt','SF':'Sacrifice Fly','K':'Strikeout (swing)','Kl':'Strikeout (looking)','GO':'Groundout','FO':'Flyout','LO':'Lineout','DP':'Double Play','E':'Error','FC':"Fielder's Choice"};
+const RESULT_LABELS={'1B':'Single','2B':'Double','3B':'Triple','HR':'Home Run','BB':'Walk','HBP':'Hit by Pitch','SAC':'Sacrifice Bunt','SF':'Sacrifice Fly','K':'Strikeout (swing)','Kl':'Strikeout (looking)','GO':'Groundout','FO':'Flyout','fO':'Foul Out','LO':'Lineout','DP':'Double Play','E':'Error','FC':"Fielder's Choice",'SB':'Stolen Base','CS':'Caught Stealing','WP':'Wild Pitch','PB':'Passed Ball','BK':'Balk'};
 const HITS=['1B','2B','3B','HR'];
 const WALKS=['BB','HBP','SAC','SF','FC','E'];
-const OUTS_LIST=['K','Kl','GO','FO','LO','DP','E','FC'];
-const NEEDS_FIELDER=['GO','FO','LO','DP','E','FC','SAC','SF'];
-const SHOW_BASES=['1B','2B','3B','HR','BB','HBP','SAC','SF','E'];
+const OUTS_LIST=['K','Kl','GO','FO','fO','LO','DP','E','FC','CS'];
+const RUNNER_EVENTS=['SB','WP','PB','BK','CS']; // no new batter, just runner advancement
+const NEEDS_FIELDER=['GO','FO','fO','LO','DP','E','FC','SAC','SF','CS'];
+const SHOW_BASES=['1B','2B','3B','HR','BB','HBP','SAC','SF','E','SB','WP','PB','BK'];
 
 // Diamond path coords (SVG 88x88 viewBox)
 // Home=bottom, 1B=right, 2B=top, 3B=left
@@ -723,14 +767,14 @@ const DP = {
 let G = {
   homeName:'Home Team', awayName:'Away Team',
   totalInnings:7, gameDate:new Date().toISOString().split('T')[0],
-  currentInning:1, currentHalf:'top', // top=home bats, bot=away bats
-  innings:9, // rendered columns
-  // cells[half][playerIdx][inning] = play object or null
+  currentInning:1, currentHalf:'top',
+  innings:9,
   homeCells:[], awayCells:[],
   homeLineup:[], awayLineup:[],
   homeBatterIdx:0, awayBatterIdx:0,
-  playLog:[],
-  savedGames:[]
+  playLog:[], savedGames:[],
+  homePitchers:[], awayPitchers:[],
+  activePitcherKey: null
 };
 
 // Pending at-bat
@@ -773,6 +817,7 @@ function renderAll(){
   renderStatsTable();
   buildGuide();
   renderPitcherList();
+  renderActivePitcherBanner();
 }
 
 // ══════════════════════════════════════════════
@@ -987,11 +1032,44 @@ function drawCell(td, play){
     }
 
     // Out X
-    if(isOut(play.result)&&play.result!=='E'&&play.result!=='FC'){
+    if(isOut(play.result)&&play.result!=='E'&&play.result!=='FC'&&play.result!=='CS'){
       const x=document.createElementNS(ns,'g');
       x.innerHTML=`<line x1="36" y1="36" x2="52" y2="52" stroke="var(--out-color)" stroke-width="2.5" stroke-linecap="round"/>
                    <line x1="52" y1="36" x2="36" y2="52" stroke="var(--out-color)" stroke-width="2.5" stroke-linecap="round"/>`;
       svg.appendChild(x);
+    }
+
+    // CS out X (caught stealing)
+    if(play.result==='CS'){
+      const x=document.createElementNS(ns,'g');
+      x.innerHTML=`<line x1="36" y1="36" x2="52" y2="52" stroke="var(--out-color)" stroke-width="2.5" stroke-linecap="round"/>
+                   <line x1="52" y1="36" x2="36" y2="52" stroke="var(--out-color)" stroke-width="2.5" stroke-linecap="round"/>`;
+      svg.appendChild(x);
+    }
+
+    // Circled out number ①②③
+    if(play.outNum){
+      const outNums=['①','②','③'];
+      const circle=document.createElementNS(ns,'text');
+      circle.setAttribute('x','76');circle.setAttribute('y','18');
+      circle.setAttribute('text-anchor','middle');
+      circle.setAttribute('font-family','sans-serif');
+      circle.setAttribute('font-size','13');
+      circle.setAttribute('font-weight','700');
+      circle.setAttribute('fill','var(--out-color)');
+      circle.textContent=outNums[play.outNum-1]||play.outNum;
+      svg.appendChild(circle);
+    }
+
+    // End-of-inning slash (bottom-right corner)
+    if(play.inningEnd){
+      const slash=document.createElementNS(ns,'line');
+      slash.setAttribute('x1','70');slash.setAttribute('y1','88');
+      slash.setAttribute('x2','88');slash.setAttribute('y2','70');
+      slash.setAttribute('stroke','rgba(255,255,255,0.5)');
+      slash.setAttribute('stroke-width','2');
+      slash.setAttribute('stroke-linecap','round');
+      svg.appendChild(slash);
     }
   }
 
@@ -1021,6 +1099,12 @@ function getNotation(play){
   const r=play.result;
   if(r==='K')return'K';
   if(r==='Kl')return'ꓘ';
+  if(r==='fO')return'fO';
+  if(r==='SB')return'SB';
+  if(r==='CS')return play.outSeq&&play.outSeq.length?'CS '+play.outSeq.join('-'):'CS';
+  if(r==='WP')return'WP';
+  if(r==='PB')return'PB';
+  if(r==='BK')return'BK';
   if(HITS.includes(r))return r;
   if(r==='BB')return'BB';
   if(r==='HBP')return'HBP';
@@ -1034,7 +1118,7 @@ function getNotation(play){
   return r;
 }
 
-function isOut(r){return['K','Kl','GO','FO','LO','DP'].includes(r);}
+function isOut(r){return['K','Kl','GO','FO','fO','LO','DP','CS'].includes(r);}
 
 // Segment coordinates for SVG 88x88 cell diamond
 // Home=bottom (44,78), 1B=right (82,44), 2B=top (44,6), 3B=left (6,44)
@@ -1045,21 +1129,27 @@ function getBaseSegments(result,baseTo,scored,outSeq){
   const add=(from,to,color)=>{
     segs.push({x1:BP[from][0],y1:BP[from][1],x2:BP[to][0],y2:BP[to][1],color});
   };
-  const order=['home','first','second','third','home'];
   const reachedBases=[];
+  const runnerColor='var(--accent)'; // orange dashed for runner events
 
   if(result==='HR'){reachedBases.push('first','second','third','home');}
   else if(result==='3B'){reachedBases.push('first','second','third');}
   else if(result==='2B'){reachedBases.push('first','second');}
   else if(result==='1B'||result==='BB'||result==='HBP'){reachedBases.push('first');}
   else if(result==='FC'||result==='E'){
-    // Use baseTo so batter can reach 2B or 3B on an error
     if(baseTo==='2B')reachedBases.push('first','second');
     else if(baseTo==='3B')reachedBases.push('first','second','third');
     else if(baseTo==='Home')reachedBases.push('first','second','third','home');
     else reachedBases.push('first');
   }
-  else if(result==='SAC'||result==='SF'){/* batter out, runners advance — just mark the path taken by batter briefly */}
+  else if(result==='SAC'||result==='SF'){}
+  // Runner events — draw from wherever runner was advancing to
+  else if(['SB','WP','PB','BK','CS'].includes(result)){
+    if(baseTo==='2B')reachedBases.push('second');
+    else if(baseTo==='3B')reachedBases.push('third');
+    else if(baseTo==='Home')reachedBases.push('home');
+    else if(baseTo==='1B')reachedBases.push('first');
+  }
   else if(baseTo){
     if(baseTo==='1B')reachedBases.push('first');
     else if(baseTo==='2B')reachedBases.push('first','second');
@@ -1067,18 +1157,22 @@ function getBaseSegments(result,baseTo,scored,outSeq){
     else if(baseTo==='Home')reachedBases.push('first','second','third','home');
   }
 
-  // Draw advancement lines
-  let prev='home';
-  reachedBases.forEach(b=>{
-    add(prev,b,'var(--path-color)');
-    prev=b;
-  });
-
-  // If scored (and not HR which auto-scores), circle back to home
-  if(scored&&result!=='HR'&&prev!=='home'){
-    add(prev,'home','var(--green)');
+  // For runner events, start from previous base (approximate from baseTo)
+  if(['SB','WP','PB','BK','CS'].includes(result)){
+    const color = result==='CS' ? 'var(--out-color)' : '#f5a623';
+    // Draw a short arrow-like line to the base they advanced to
+    let from='home', to='first';
+    if(baseTo==='2B'){from='first';to='second';}
+    else if(baseTo==='3B'){from='second';to='third';}
+    else if(baseTo==='Home'){from='third';to='home';}
+    add(from,to,color);
+    if(scored&&result!=='CS')add(to==='home'?'home':to,'home','var(--green)');
+    return segs;
   }
 
+  let prev='home';
+  reachedBases.forEach(b=>{add(prev,b,'var(--path-color)');prev=b;});
+  if(scored&&result!=='HR'&&prev!=='home'){add(prev,'home','var(--green)');}
   return segs;
 }
 
@@ -1129,8 +1223,12 @@ function openAtBat(team,playerIdx,inning){
 
 function selectResult(code,el){
   AB.result=code;AB.outSeq=[];AB.baseTo=null;
-  // E and FC always reach 1st — set automatically
+  // E and FC always reach 1st by default
   if(code==='E'||code==='FC') AB.baseTo='1B';
+  // Runner events: show which base the runner advanced to
+  if(RUNNER_EVENTS.includes(code)){
+    AB.baseTo=null; // coach picks the base advanced to
+  }
   document.querySelectorAll('.result-btn').forEach(b=>b.classList.remove('sel'));
   el.classList.add('sel');
   showFielderOrBase(code);
@@ -1142,17 +1240,32 @@ function showFielderOrBase(code){
   document.getElementById('fielderSection').style.display=NEEDS_FIELDER.includes(code)?'block':'none';
   document.getElementById('baseSection').style.display=SHOW_BASES.includes(code)?'block':'none';
 
-  // Set fielder label
-  const labels={GO:'Tap fielders in order (e.g. 6 → 3 for groundout SS to 1B)',FO:'Who caught it?',LO:'Who caught the line drive?',DP:'Tap all fielders involved (e.g. 6-4-3)',E:'Who made the error?',FC:'Fielder who made the play',SAC:'Who fielded the bunt?',SF:'Who caught the fly?'};
-  if(labels[code])document.getElementById('fielderLabel').textContent=labels[code];
+  // Fielder labels
+  const labels={
+    GO:'Tap fielders in order (e.g. 6 → 3 for groundout SS to 1B)',
+    FO:'Who caught it?', fO:'Who caught the foul ball?',
+    LO:'Who caught the line drive?',
+    DP:'Tap all fielders involved (e.g. 6-4-3)',
+    E:'Who made the error?', FC:'Fielder who made the play',
+    SAC:'Who fielded the bunt?', SF:'Who caught the fly?',
+    CS:'Who threw the runner out? (e.g. 2-6 = catcher to SS)'
+  };
+  if(labels[code]) document.getElementById('fielderLabel').textContent=labels[code];
 
   // Base buttons
   if(SHOW_BASES.includes(code)){
     const wrap=document.getElementById('baseProgressBtns');
     wrap.innerHTML='';
-    // Update label — for E, batter can advance past 1B
     const baseLabel = document.querySelector('#baseSection .result-section-label');
-    if(baseLabel) baseLabel.textContent = code==='E' ? 'Batter reached (1B default — change if they advanced further)' : 'Batter reached / advanced to';
+    let labelText = 'Runner advanced to';
+    if(code==='E') labelText='Batter reached (1B default — change if they advanced further)';
+    else if(HITS.includes(code)||WALKS.includes(code)) labelText='Batter reached / advanced to';
+    else if(code==='SB') labelText='Runner stole to';
+    else if(code==='WP') labelText='Runner advanced to (on wild pitch)';
+    else if(code==='PB') labelText='Runner advanced to (on passed ball)';
+    else if(code==='BK') labelText='Runner advanced to (on balk)';
+    if(baseLabel) baseLabel.textContent=labelText;
+
     const bases=['1B','2B','3B','Home'];
     bases.forEach(b=>{
       const btn=document.createElement('div');
@@ -1296,17 +1409,27 @@ function commitAtBat(){
 
   if(!cells[AB.playerIdx])cells[AB.playerIdx]=Array(G.totalInnings).fill(null);
 
+  // Track out number in half inning for display
+  const isOutPlay = OUTS_LIST.includes(AB.result);
+  if(isOutPlay) halfInningOuts = Math.min(halfInningOuts + 1, 3);
+  const isInningEnd = isOutPlay && halfInningOuts >= 3;
+
   cells[AB.playerIdx][AB.inning]={
     result:AB.result,
     outSeq:[...AB.outSeq],
     baseTo:AB.baseTo,
     scored:AB.scored,
-    rbi:AB.rbi
+    rbi:AB.rbi,
+    outNum: isOutPlay ? halfInningOuts : null,
+    inningEnd: isInningEnd,
+    isRunnerEvent: RUNNER_EVENTS.includes(AB.result)
   };
 
-  // Auto-advance batter index
-  if(AB.half==='home')G.homeBatterIdx=(AB.playerIdx+1)%lineup.length;
-  else G.awayBatterIdx=(AB.playerIdx+1)%lineup.length;
+  // Only advance batter if this is NOT a runner-only event
+  if(!RUNNER_EVENTS.includes(AB.result)){
+    if(AB.half==='home') G.homeBatterIdx=(AB.playerIdx+1)%lineup.length;
+    else G.awayBatterIdx=(AB.playerIdx+1)%lineup.length;
+  }
 
   // Build play log entry
   const player=lineup[AB.playerIdx];
@@ -1314,22 +1437,32 @@ function commitAtBat(){
   const posDesc=AB.outSeq.length>0?' ('+AB.outSeq.map(n=>POS_NAMES[n]).join(' → ')+')':'';
   const label=RESULT_LABELS[AB.result]||AB.result;
   let logText=(player?player.name:'Batter')+' — '+notation+' · '+label+posDesc;
-  if(AB.scored)logText+=' · Scored';
-  if(AB.rbi>0)logText+=' · '+AB.rbi+' RBI';
+  if(AB.baseTo) logText+=' → '+AB.baseTo;
+  if(AB.scored) logText+=' · Scored';
+  if(AB.rbi>0) logText+=' · '+AB.rbi+' RBI';
   const inn=(AB.inning+1)+(AB.half==='home'?' Top':' Bot');
 
   G.playLog.push({
     inningStr:inn,
     batter:player?player.name:'Batter',
     result:AB.result,
-    notation,
-    label,
-    posDesc,
-    scored:AB.scored,
-    rbi:AB.rbi,
+    notation,label,posDesc,
+    scored:AB.scored,rbi:AB.rbi,
     text:logText,
-    type:HITS.includes(AB.result)?'hit':isOut(AB.result)?'out':'misc'
+    type:HITS.includes(AB.result)?'hit':OUTS_LIST.includes(AB.result)?'out':'misc'
   });
+
+  // Auto-update active pitcher stats
+  updateActivePitcherFromPlay(AB.result, AB.outSeq, AB.rbi, AB.scored);
+
+  // Check for 3 outs from scorecard (non-pitch-counter path)
+  if(isOutPlay && halfInningOuts >= 3){
+    closeModal('atBatModal');
+    persist();renderAll();
+    showToast('3 Outs — switching sides');
+    setTimeout(()=>{ halfInningOuts=0; nextInning(); },800);
+    return;
+  }
 
   closeModal('atBatModal');
   persist();renderAll();
@@ -1340,6 +1473,7 @@ function commitAtBat(){
 //  INNING NAVIGATION
 // ══════════════════════════════════════════════
 function nextInning(){
+  halfInningOuts = 0;
   if(G.currentHalf==='top')G.currentHalf='bot';
   else{G.currentInning=Math.min(G.currentInning+1,G.totalInnings);G.currentHalf='top';}
   persist();renderAll();
@@ -1382,7 +1516,7 @@ function resetGame(){
 
 function confirmResetGame(){
   const sg=G.savedGames||[];
-  G={homeName:G.homeName,awayName:G.awayName,totalInnings:G.totalInnings,gameDate:G.gameDate,currentInning:1,currentHalf:'top',homeCells:[],awayCells:[],homeLineup:[...G.homeLineup],awayLineup:[...G.awayLineup],homeBatterIdx:0,awayBatterIdx:0,playLog:[],homePitchers:[],awayPitchers:[],savedGames:sg};
+  G={homeName:G.homeName,awayName:G.awayName,totalInnings:G.totalInnings,gameDate:G.gameDate,currentInning:1,currentHalf:'top',homeCells:[],awayCells:[],homeLineup:[...G.homeLineup],awayLineup:[...G.awayLineup],homeBatterIdx:0,awayBatterIdx:0,playLog:[],homePitchers:[],awayPitchers:[],activePitcherKey:null,savedGames:sg};
   ensureCells();
   closeModal('resetConfirmModal');
   closeModal('setupModal');
@@ -1990,15 +2124,28 @@ const GUIDE_SECTIONS = [
     `
   },
   {
-    title: '🔴 Out Results — K GO FO LO DP',
+    title: '🔴 Out Results — K GO FO fO LO DP CS',
     content: `
       <div class="g-row"><span class="g-code red">K</span><span class="g-desc">Strikeout swinging — batter swings and misses strike 3</span></div>
       <div class="g-row"><span class="g-code red">K̲</span><span class="g-desc">Strikeout looking — batter watches strike 3 go by without swinging</span></div>
       <div class="g-row"><span class="g-code red">GO</span><span class="g-desc">Groundout — ball hit on the ground, fielded and thrown to get the batter out</span></div>
       <div class="g-row"><span class="g-code red">FO</span><span class="g-desc">Flyout — ball hit in the air and caught before it touches the ground</span></div>
+      <div class="g-row"><span class="g-code red">fO</span><span class="g-desc">Foul Out — batter hits a foul ball that is caught in the air for an out</span></div>
       <div class="g-row"><span class="g-code red">LO</span><span class="g-desc">Lineout — hard hit ball caught on a line drive before it hits the ground</span></div>
-      <div class="g-row"><span class="g-code red">DP</span><span class="g-desc">Double Play — two runners put out on the same play</span></div>
-      <div class="g-tip">For GO, FO, LO, and DP — you'll be asked to enter the fielder numbers. This is where the 1–9 system comes in (see next section).</div>
+      <div class="g-row"><span class="g-code red">DP</span><span class="g-desc">Double Play — two runners put out on the same play (e.g. 6-4-3)</span></div>
+      <div class="g-row"><span class="g-code red">CS</span><span class="g-desc">Caught Stealing — runner tries to steal and is thrown out (e.g. 2-6 = catcher to SS)</span></div>
+      <div class="g-tip">For GO, FO, fO, LO, DP, and CS — you'll be asked to enter the fielder numbers in order.</div>
+    `
+  },
+  {
+    title: '🏃 Runner Events — SB WP PB BK',
+    content: `
+      <p style="font-size:13px;color:var(--gray);margin-bottom:10px;">These plays happen <strong style="color:var(--white);">without a new batter</strong> — the current batter stays at the plate. Tap the runner event button, then select which base the runner advanced to.</p>
+      <div class="g-row"><span class="g-code gold">SB</span><span class="g-desc">Stolen Base — runner successfully steals the next base. Tap the base they reached.</span></div>
+      <div class="g-row"><span class="g-code gold">WP</span><span class="g-desc">Wild Pitch — pitcher throws a ball the catcher cannot handle, runner advances.</span></div>
+      <div class="g-row"><span class="g-code gold">PB</span><span class="g-desc">Passed Ball — catcher drops a catchable pitch, runner advances. Charged to the catcher.</span></div>
+      <div class="g-row"><span class="g-code gold">BK</span><span class="g-desc">Balk — pitcher makes an illegal motion. All runners advance one base automatically.</span></div>
+      <div class="g-tip">The cell for the current batter gets a small notation (SB, WP, PB, or BK) showing what happened during their at-bat. The batter count does not reset.</div>
     `
   },
   {
@@ -2125,8 +2272,123 @@ function buildGuide() {
 }
 
 // ══════════════════════════════════════════════
-//  PITCHING SYSTEM
+//  ACTIVE PITCHER — auto-sync with scorecard
 // ══════════════════════════════════════════════
+// G.activePitcherKey = "home-0" | "away-1" | null
+
+function renderActivePitcherBanner() {
+  const banner = document.getElementById('activePitcherBanner');
+  const nameEl = document.getElementById('activePitcherName');
+  if (!banner || !nameEl) return;
+  if (!G.activePitcherKey) {
+    nameEl.textContent = '— Tap to select pitcher —';
+    banner.style.display = 'flex';
+    return;
+  }
+  const p = getPitcherByKey(G.activePitcherKey);
+  if (p) {
+    nameEl.textContent = p.name + (p.num ? ' #' + p.num : '');
+    banner.style.display = 'flex';
+  }
+}
+
+function getPitcherByKey(key) {
+  if (!key) return null;
+  const [team, idx] = key.split('-');
+  const list = team === 'home' ? G.homePitchers : G.awayPitchers;
+  return list ? list[parseInt(idx)] : null;
+}
+
+function openChangePitcherModal() {
+  ensurePitchers();
+  const wrap = document.getElementById('changePitcherList');
+  wrap.innerHTML = '';
+
+  const mkSection = (team, list, label) => {
+    if (!list.length) return;
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'font-family:"Barlow Condensed",sans-serif;font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin:10px 0 6px;';
+    hdr.textContent = label;
+    wrap.appendChild(hdr);
+    list.forEach((p, i) => {
+      const key = team + '-' + i;
+      const isActive = G.activePitcherKey === key;
+      const btn = document.createElement('div');
+      btn.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;border:1.5px solid ${isActive ? 'var(--accent)' : 'var(--border2)'};background:${isActive ? 'rgba(245,166,35,.08)' : 'var(--card2)'};margin-bottom:7px;cursor:pointer;`;
+      const ip = outsToIP(p.outs);
+      const era = calcERA(p.runs, p.outs);
+      btn.innerHTML = `
+        <div style="width:36px;height:36px;background:var(--blue2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--accent);flex-shrink:0;">${p.num || '#'}</div>
+        <div style="flex:1;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;">${p.name}</div>
+          <div style="font-size:11px;color:var(--gray);">IP: ${ip} · ERA: ${era} · K: ${p.ks} · BB: ${p.walks}</div>
+        </div>
+        ${isActive ? '<div style="color:var(--accent);font-size:18px;">✓</div>' : ''}`;
+      btn.onclick = () => setActivePitcher(key);
+      wrap.appendChild(btn);
+    });
+  };
+
+  mkSection('home', G.homePitchers || [], '▲ ' + G.homeName);
+  mkSection('away', G.awayPitchers || [], '▼ ' + G.awayName);
+
+  if (!G.homePitchers?.length && !G.awayPitchers?.length) {
+    wrap.innerHTML = '<p style="color:var(--gray);font-size:13px;text-align:center;padding:20px 0;">No pitchers added yet.<br>Go to the Pitching tab to add pitchers.</p>';
+  }
+
+  openModal('changePitcherModal');
+}
+
+function setActivePitcher(key) {
+  G.activePitcherKey = key;
+  const p = getPitcherByKey(key);
+  closeModal('changePitcherModal');
+  persist();
+  renderActivePitcherBanner();
+  if (p) showToast(p.name + ' is now pitching');
+}
+
+function clearActivePitcher() {
+  G.activePitcherKey = null;
+  closeModal('changePitcherModal');
+  persist();
+  renderActivePitcherBanner();
+  showToast('No active pitcher');
+}
+
+// Auto-update pitcher stats from a committed play
+function updateActivePitcherFromPlay(result, outSeq, rbi, scored) {
+  if (!G.activePitcherKey) return;
+  const p = getPitcherByKey(G.activePitcherKey);
+  if (!p) return;
+
+  // Hits
+  if (HITS.includes(result)) { p.hits++; }
+
+  // Walks / HBP count against pitcher
+  if (result === 'BB') p.walks++;
+  if (result === 'HBP') p.walks++; // counts toward WHIP
+
+  // Strikeouts
+  if (result === 'K' || result === 'Kl') { p.ks++; p.outs++; halfInningOuts = Math.min(halfInningOuts + 1, 3); }
+
+  // Standard outs
+  if (['GO','FO','fO','LO','SAC','SF','FC'].includes(result)) { p.outs++; }
+
+  // Double play = 2 outs
+  if (result === 'DP') { p.outs += 2; }
+
+  // Caught stealing
+  if (result === 'CS') { p.outs++; }
+
+  // Runs allowed — any scored run while this pitcher is active
+  if (scored) p.runs++;
+  // HR batter scores too + RBI runners
+  if (result === 'HR') p.runs += (rbi || 1); // HR batter + RBI
+
+  persist();
+  renderPitcherList();
+}
 let pitchingTeam = 'home';
 let activePitcherKey = null; // "home-0", "away-1" etc
 
@@ -2241,11 +2503,18 @@ function eraColor(era) {
 }
 
 // ── Live Pitch Counter ──
+let currentABBalls = 0;
+let currentABStrikes = 0;
+let halfInningOuts = 0; // resets each half inning
+
 function openPitchCounter(team, idx) {
   ensurePitchers();
   activePitcherKey = team + '-' + idx;
   const p = (team==='home' ? G.homePitchers : G.awayPitchers)[idx];
   document.getElementById('pcModalTitle').textContent = '⚾ ' + p.name + (p.num ? ' #'+p.num : '');
+  // Reset current at-bat count — pitcher totals stay accumulated
+  currentABBalls = 0;
+  currentABStrikes = 0;
   updatePitchCountDisplay(p);
   openModal('pitchCountModal');
 }
@@ -2260,8 +2529,49 @@ function getActivePitcher() {
 function adjCount(type, delta) {
   const p = getActivePitcher();
   if (!p) return;
-  if (type === 'balls') p.balls = Math.max(0, p.balls + delta);
-  if (type === 'strikes') p.strikes = Math.max(0, p.strikes + delta);
+
+  if (type === 'balls') {
+    const newVal = Math.max(0, currentABBalls + delta);
+    p.balls += (newVal - currentABBalls);
+    currentABBalls = newVal;
+
+    // 4 balls = walk
+    if (currentABBalls >= 4) {
+      p.walks++;
+      currentABBalls = 0;
+      currentABStrikes = 0;
+      showToast('Walk (BB) — new batter');
+    }
+  }
+
+  if (type === 'strikes') {
+    const newVal = Math.max(0, currentABStrikes + delta);
+    p.strikes += (newVal - currentABStrikes);
+    currentABStrikes = newVal;
+
+    // 3 strikes = strikeout
+    if (currentABStrikes >= 3) {
+      p.ks++;
+      p.outs++;
+      halfInningOuts++;
+      currentABBalls = 0;
+      currentABStrikes = 0;
+
+      if (halfInningOuts >= 3) {
+        // 3 outs — switch sides
+        halfInningOuts = 0;
+        setTimeout(() => {
+          closeModal('pitchCountModal');
+          nextInning();
+          showToast('3 Outs — switching sides');
+          persist(); renderAll();
+        }, 600);
+      } else {
+        showToast('Strikeout (K) — ' + (3 - halfInningOuts) + ' out' + (3 - halfInningOuts !== 1 ? 's' : '') + ' to go');
+      }
+    }
+  }
+
   updatePitchCountDisplay(p);
   persist();
 }
@@ -2280,8 +2590,8 @@ function adjPitchStat(stat, delta) {
 
 function updatePitchCountDisplay(p) {
   const total = p.balls + p.strikes;
-  document.getElementById('pcBalls').textContent = p.balls;
-  document.getElementById('pcStrikes').textContent = p.strikes;
+  document.getElementById('pcBalls').textContent = currentABBalls;
+  document.getElementById('pcStrikes').textContent = currentABStrikes;
   document.getElementById('pcTotal').textContent = total;
   document.getElementById('pcHits').textContent = p.hits;
   document.getElementById('pcWalks').textContent = p.walks;
@@ -2292,6 +2602,25 @@ function updatePitchCountDisplay(p) {
   const eraEl = document.getElementById('pcERA');
   eraEl.textContent = era;
   eraEl.style.color = eraColor(era);
+  // Out dots
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('pcOut' + i);
+    if (dot) {
+      dot.style.background = i <= halfInningOuts ? 'var(--accent)' : 'transparent';
+      dot.style.borderColor = i <= halfInningOuts ? 'var(--accent)' : 'var(--gray)';
+    }
+  }
+  const outLabel = document.getElementById('pcOutLabel');
+  if (outLabel) outLabel.textContent = halfInningOuts + ' out' + (halfInningOuts !== 1 ? 's' : '') + ' this half';
+}
+
+function nextBatterPitchCount() {
+  const p = getActivePitcher();
+  if (!p) return;
+  currentABBalls = 0;
+  currentABStrikes = 0;
+  updatePitchCountDisplay(p);
+  showToast('New batter — count reset');
 }
 
 function savePitcherStats() {
