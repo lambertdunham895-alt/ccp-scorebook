@@ -290,11 +290,12 @@ select.form-input{appearance:none;}
 .sg-out-misc{background:rgba(255,255,255,.06);border:1.5px solid var(--border2);color:var(--gray);}
 /* Position labels on field */
 .sg-pos-label{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;color:#fff;text-shadow:0 1px 5px rgba(0,0,0,.95),0 0 10px rgba(0,0,0,.9);line-height:1.2;text-align:center;white-space:nowrap;}
-.sg-pitch-row{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid #f0f0f0;cursor:pointer;background:#fff;transition:background .1s;}
-.sg-pitch-row:active{background:#f5f5f5;}
-.sg-pitch-row-bip{border-top:2px solid #e3f2fd;}
-.sg-pitch-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;flex-shrink:0;}
-.sg-pitch-label{font-size:16px;color:#1a1a1a;font-weight:500;}
+.sg-pitch-row{display:flex;align-items:center;gap:16px;padding:18px 18px;border-bottom:1px solid var(--border);cursor:pointer;background:transparent;transition:background .12s;}
+.sg-pitch-row:active{background:rgba(255,255,255,0.06);}
+.sg-pitch-row-bip{border-top:1.5px solid rgba(245,166,35,.35);border-bottom:1.5px solid rgba(245,166,35,.35);background:rgba(245,166,35,.06);}
+.sg-pitch-row-bip:active{background:rgba(245,166,35,.14);}
+.sg-pitch-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;flex-shrink:0;border:1px solid rgba(255,255,255,0.08);}
+.sg-pitch-label{font-size:17px;color:var(--white);font-weight:600;font-family:'Barlow Condensed',sans-serif;letter-spacing:.02em;text-transform:uppercase;}
 </style>
 </head>
 <body>
@@ -960,42 +961,46 @@ select.form-input{appearance:none;}
 
   </div>
 
-  <!-- PITCH MENU (slides up, GC-style vertical list) -->
-  <div id="sgPitchMenu" style="position:absolute;bottom:0;left:0;right:0;background:#fff;border-radius:16px 16px 0 0;transform:translateY(100%);transition:transform .25s cubic-bezier(.32,.72,0,1);z-index:20;max-height:75vh;overflow-y:auto;">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;border-bottom:1px solid #e8e8e8;">
-      <button onclick="sgClosePitchMenu()" style="background:none;border:none;font-size:22px;color:#888;cursor:pointer;padding:0;">✕</button>
-      <span style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:#1a1a1a;letter-spacing:.04em;">PITCH</span>
-      <button onclick="sgUndoLastPitch()" style="background:none;border:none;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:#1565c0;cursor:pointer;">Undo</button>
+  <!-- PITCH MENU (slides up, dark themed to match app) -->
+  <div id="sgPitchMenu" style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(180deg,#0b1525 0%,#060d1a 100%);border-radius:18px 18px 0 0;border-top:1px solid var(--border2);box-shadow:0 -8px 24px rgba(0,0,0,.5);transform:translateY(100%);transition:transform .25s cubic-bezier(.32,.72,0,1);z-index:20;max-height:78vh;overflow-y:auto;">
+    <!-- Drag handle -->
+    <div style="display:flex;justify-content:center;padding:8px 0 4px;">
+      <div style="width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,0.18);"></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 18px 12px;border-bottom:1px solid var(--border2);">
+      <button onclick="sgClosePitchMenu()" style="background:rgba(255,255,255,0.06);border:1px solid var(--border2);width:32px;height:32px;border-radius:8px;font-size:16px;color:var(--white);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;">✕</button>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--accent);letter-spacing:.08em;">PITCH</span>
+      <button onclick="sgUndoLastPitch()" style="background:rgba(245,166,35,0.12);border:1px solid rgba(245,166,35,0.4);border-radius:8px;padding:6px 12px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;color:var(--accent);cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">Undo</button>
     </div>
     <!-- Pitch options — vertical list like GC -->
     <div id="sgPitchMenuItems">
       <div class="sg-pitch-row" onclick="sgPitchFromMenu('ball')">
-        <div class="sg-pitch-icon" style="background:#e8f5e9;color:#2e7d32;">B</div>
+        <div class="sg-pitch-icon" style="background:rgba(0,200,83,0.18);color:#4ade80;border-color:rgba(0,200,83,0.35);">B</div>
         <span class="sg-pitch-label">Ball</span>
       </div>
       <div class="sg-pitch-row" onclick="sgPitchFromMenu('called-strike')">
-        <div class="sg-pitch-icon" style="background:#fce4ec;color:#c62828;font-size:14px;">ꓘ</div>
+        <div class="sg-pitch-icon" style="background:rgba(229,57,53,0.18);color:#f87171;border-color:rgba(229,57,53,0.35);font-size:16px;">ꓘ</div>
         <span class="sg-pitch-label">Called Strike</span>
       </div>
       <div class="sg-pitch-row" onclick="sgPitchFromMenu('swinging-strike')">
-        <div class="sg-pitch-icon" style="background:#fce4ec;color:#c62828;">K</div>
+        <div class="sg-pitch-icon" style="background:rgba(229,57,53,0.18);color:#f87171;border-color:rgba(229,57,53,0.35);">K</div>
         <span class="sg-pitch-label">Swing &amp; Miss</span>
       </div>
       <div class="sg-pitch-row" onclick="sgPitchFromMenu('foul')">
-        <div class="sg-pitch-icon" style="background:#fff8e1;color:#f57f17;">F</div>
+        <div class="sg-pitch-icon" style="background:rgba(245,166,35,0.18);color:var(--accent2);border-color:rgba(245,166,35,0.35);">F</div>
         <span class="sg-pitch-label">Foul Ball</span>
       </div>
       <div class="sg-pitch-row sg-pitch-row-bip" onclick="sgPitchFromMenu('bip')">
-        <div class="sg-pitch-icon" style="background:#e3f2fd;color:#1565c0;font-size:18px;">↘</div>
-        <span class="sg-pitch-label" style="color:#1565c0;font-weight:700;">Ball in Play</span>
-        <span style="margin-left:auto;color:#1565c0;font-size:18px;">›</span>
+        <div class="sg-pitch-icon" style="background:rgba(245,166,35,0.25);color:var(--accent2);border-color:rgba(245,166,35,0.5);font-size:20px;">↘</div>
+        <span class="sg-pitch-label" style="color:var(--accent2);font-weight:800;">Ball in Play</span>
+        <span style="margin-left:auto;color:var(--accent);font-size:20px;font-weight:700;">›</span>
       </div>
       <div class="sg-pitch-row" onclick="sgPitchFromMenu('hbp')">
-        <div class="sg-pitch-icon" style="background:#fce4ec;color:#c62828;font-size:13px;">HBP</div>
+        <div class="sg-pitch-icon" style="background:rgba(229,57,53,0.18);color:#f87171;border-color:rgba(229,57,53,0.35);font-size:14px;">HBP</div>
         <span class="sg-pitch-label">Hit by Pitch</span>
       </div>
       <div class="sg-pitch-row" onclick="sgPitchFromMenu('ibb')">
-        <div class="sg-pitch-icon" style="background:#e8f5e9;color:#2e7d32;font-size:10px;">IBB</div>
+        <div class="sg-pitch-icon" style="background:rgba(0,200,83,0.18);color:#4ade80;border-color:rgba(0,200,83,0.35);font-size:11px;">IBB</div>
         <span class="sg-pitch-label">Intentional Walk</span>
       </div>
     </div>
@@ -3062,6 +3067,15 @@ function exitScoreMode() {
 }
 
 // ── Render all live scoring UI ──
+// ── Refresh ALL views after any pitch/outcome (keeps every tab in sync) ──
+function sgRefreshAll() {
+  try { sgRender(); } catch(e) {}
+  try { if (typeof renderScorecard === 'function') renderScorecard(); } catch(e) {}
+  try { if (typeof renderPBP === 'function') renderPBP(); } catch(e) {}
+  try { if (typeof renderStatsTable === 'function') renderStatsTable(); } catch(e) {}
+  try { if (typeof renderPitcherList === 'function') renderPitcherList(); } catch(e) {}
+}
+
 function sgRender() {
   // Inning ordinal
   const ordinals = ['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th'];
@@ -3129,9 +3143,26 @@ function sgClosePitchMenu() {
 
 function sgPitchFromMenu(type) {
   sgClosePitchMenu();
-  if (type === 'bip') { sgOpenOutcomePicker('bip'); return; }
-  if (type === 'hbp') { sgSelectOutcome('HBP'); return; }
-  if (type === 'ibb') { sgAutoResult('BB'); return; }
+  const p = getPitcherByKey(G.activePitcherKey);
+
+  // BIP — counts as 1 pitch (a strike, since they swung & contacted)
+  if (type === 'bip') {
+    SG.pitchCount++;
+    if (p) p.strikes++;
+    sgOpenOutcomePicker('bip');
+    return;
+  }
+  // HBP — counts as 1 pitch (the ball that hit them); doesn't add to balls/strikes
+  if (type === 'hbp') {
+    SG.pitchCount++;
+    sgSelectOutcome('HBP');
+    return;
+  }
+  // IBB — modern rule: 0 pitches required for intentional walk
+  if (type === 'ibb') {
+    sgAutoResult('BB');
+    return;
+  }
   if (type === 'ball') { sgPitch('ball'); return; }
   if (type === 'called-strike') { sgPitch('called-strike'); return; }
   if (type === 'swinging-strike') { sgPitch('strike'); return; }
@@ -3147,7 +3178,7 @@ function sgUndoLastPitch() {
     if (SG.balls > 0) { SG.balls--; if(p) p.balls = Math.max(0, p.balls-1); }
     else if (SG.strikes > 0) { SG.strikes--; if(p) p.strikes = Math.max(0, p.strikes-1); }
     showToast('Last pitch undone');
-    sgRender();
+    sgRefreshAll();
   }
 }
 
@@ -3208,7 +3239,7 @@ function sgPitch(type) {
   }
 
   persist();
-  sgRender();
+  sgRefreshAll();
 }
 
 // ── Auto-result (K or BB from count) ──
@@ -3228,7 +3259,7 @@ function sgAutoResult(result) {
     SG.runners.first = true;
     sgCommitToScorecard(result, [], '1B', false, 0);
   }
-  sgRender();
+  sgRefreshAll();
 }
 
 // ── Outcome picker ──
@@ -3436,6 +3467,7 @@ function sgCommitToScorecard(result, outSeq, baseTo, scored, rbi) {
   // Auto-update active pitcher
   updateActivePitcherFromPlay(result, outSeq, rbi, scored);
   persist();
+  sgRefreshAll();
 }
 
 // ── Runner events from scoring screen ──
@@ -3486,7 +3518,7 @@ function sgThreeOuts() {
   SG.runners = { first: false, second: false, third: false };
   persist();
   nextInning();
-  sgRender();
+  sgRefreshAll();
   showToast('3 Outs — ' + (G.currentHalf === 'top' ? G.homeName : G.awayName) + ' now batting');
 }
 
