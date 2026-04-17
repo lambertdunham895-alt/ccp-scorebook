@@ -2843,8 +2843,8 @@ function updateActivePitcherFromPlay(result, outSeq, rbi, scored) {
   if (result === 'BB') p.walks++;
   if (result === 'HBP') p.walks++; // counts toward WHIP
 
-  // Strikeouts
-  if (result === 'K' || result === 'Kl') { p.ks++; p.outs++; halfInningOuts = Math.min(halfInningOuts + 1, 3); }
+  // Strikeouts — track on pitcher only; out count is handled by the calling flow
+  if (result === 'K' || result === 'Kl') { p.ks++; p.outs++; }
 
   // Standard outs
   if (['GO','FO','fO','LO','SAC','SF','FC'].includes(result)) { p.outs++; }
@@ -3379,10 +3379,10 @@ function sgPitch(type) {
 // ── Auto-result (K or BB from count) ──
 function sgAutoResult(result) {
   SG.balls = 0; SG.strikes = 0;
-  if (result === 'K') {
+  if (result === 'K' || result === 'Kl') {
     SG.outs++;
     halfInningOuts++;
-    showToast('Strike 3 — Strikeout!');
+    showToast(result === 'Kl' ? 'Strike 3 — Called Strikeout!' : 'Strike 3 — Strikeout!');
     sgCommitToScorecard(result, [], null, false, 0);
     if (SG.outs >= 3) { sgThreeOuts(); return; }
   } else if (result === 'BB') {
@@ -3728,10 +3728,10 @@ function sgSelectOutcome(result) {
   if (result === 'K' || result === 'Kl') {
     SG.outs++; halfInningOuts++;
     SG.balls = 0; SG.strikes = 0;
-    showToast('Strikeout');
+    showToast(result === 'Kl' ? 'Called Strikeout' : 'Strikeout');
     sgCommitToScorecard(result, [], null, false, 0);
     if (SG.outs >= 3) { sgThreeOuts(); return; }
-    sgRender(); return;
+    sgRefreshAll(); return;
   }
 
   sgOpenFielderModal(result);
