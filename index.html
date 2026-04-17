@@ -284,6 +284,27 @@ select.form-input{appearance:none;}
 .sg-outcome-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px;}
 .sg-out-btn{border:none;border-radius:10px;padding:11px 4px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;cursor:pointer;text-align:center;}
 .sg-out-btn:active{transform:scale(.94);}
+
+/* NEW: Coach-friendly BIP — Hit To panel */
+.sg-hitto-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+.sg-hitto-btn{background:rgba(255,255,255,0.04);border:1.5px solid var(--border2);border-radius:12px;padding:12px 6px;cursor:pointer;text-align:center;transition:background .12s,border-color .12s;font-family:'Barlow Condensed',sans-serif;}
+.sg-hitto-btn:active{background:rgba(245,166,35,0.15);border-color:var(--accent);transform:scale(.96);}
+.sg-hitto-lbl{font-size:18px;font-weight:800;color:var(--accent);letter-spacing:.04em;margin-bottom:2px;}
+.sg-hitto-name{font-size:11px;color:var(--white);opacity:.85;font-weight:600;text-transform:uppercase;letter-spacing:.04em;line-height:1.1;}
+.sg-hitto-gap{width:100%;background:rgba(255,255,255,0.06);border:1.5px dashed var(--border2);border-radius:12px;padding:12px;color:var(--white);font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.06em;transition:background .12s;}
+.sg-hitto-gap:active{background:rgba(255,255,255,0.12);}
+
+/* NEW: Coach-friendly BIP — What Happened panel */
+.sg-whap-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.sg-whap-btn{background:rgba(255,255,255,0.04);border:1.5px solid var(--border2);border-radius:14px;padding:14px 10px;cursor:pointer;text-align:left;font-family:'Barlow Condensed',sans-serif;transition:background .12s,border-color .12s;display:flex;flex-direction:column;gap:2px;}
+.sg-whap-btn:active{transform:scale(.97);background:rgba(255,255,255,0.08);}
+.sg-whap-out:active{border-color:#f87171;}
+.sg-whap-hit:active{border-color:#4ade80;}
+.sg-whap-hr:active{border-color:var(--accent);}
+.sg-whap-err:active{border-color:#f87171;}
+.sg-whap-icon{font-size:24px;font-weight:800;line-height:1;margin-bottom:4px;}
+.sg-whap-lbl{font-size:16px;font-weight:800;color:var(--white);text-transform:uppercase;letter-spacing:.04em;}
+.sg-whap-sub{font-size:11px;color:var(--gray);font-weight:500;line-height:1.2;}
 .sg-out-hit{background:rgba(0,200,83,.12);border:1.5px solid rgba(0,200,83,.35);color:var(--green);}
 .sg-out-walk{background:rgba(245,166,35,.1);border:1.5px solid rgba(245,166,35,.3);color:var(--accent);}
 .sg-out-out{background:rgba(229,57,53,.1);border:1.5px solid rgba(229,57,53,.3);color:var(--red);}
@@ -1038,6 +1059,69 @@ select.form-input{appearance:none;}
       <button class="sg-out-btn sg-out-misc" onclick="sgSelectOutcome('SAC')">SAC</button>
       <button class="sg-out-btn sg-out-misc" onclick="sgSelectOutcome('SF')">SF</button>
     </div>
+  </div>
+
+  <!-- ═══════════════════ NEW: COACH-FRIENDLY BIP — STEP 1: HIT TO ═══════════════════ -->
+  <div class="sg-outcome-panel" id="sgHitToPanel">
+    <div class="sg-outcome-title">
+      <span>⚡ HIT TO — Where did the ball go?</span>
+      <button onclick="sgCloseHitTo()" style="background:none;border:none;color:var(--gray);font-size:20px;cursor:pointer;padding:0 4px;">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px;line-height:1.4;">Tap the fielder closest to where the ball went, or tap "No fielder" for a hit through the gap.</div>
+    <div class="sg-hitto-grid">
+      <button class="sg-hitto-btn" onclick="sgPickFielder(8)"><div class="sg-hitto-lbl">CF</div><div class="sg-hitto-name" id="sgHitToName8">Center</div></button>
+      <button class="sg-hitto-btn" onclick="sgPickFielder(7)"><div class="sg-hitto-lbl">LF</div><div class="sg-hitto-name" id="sgHitToName7">Left</div></button>
+      <button class="sg-hitto-btn" onclick="sgPickFielder(9)"><div class="sg-hitto-lbl">RF</div><div class="sg-hitto-name" id="sgHitToName9">Right</div></button>
+      <button class="sg-hitto-btn" onclick="sgPickFielder(5)"><div class="sg-hitto-lbl">3B</div><div class="sg-hitto-name" id="sgHitToName5">Third</div></button>
+      <button class="sg-hitto-btn" onclick="sgPickFielder(6)"><div class="sg-hitto-lbl">SS</div><div class="sg-hitto-name" id="sgHitToName6">Short</div></button>
+      <button class="sg-hitto-btn" onclick="sgPickFielder(4)"><div class="sg-hitto-lbl">2B</div><div class="sg-hitto-name" id="sgHitToName4">Second</div></button>
+      <button class="sg-hitto-btn" onclick="sgPickFielder(3)"><div class="sg-hitto-lbl">1B</div><div class="sg-hitto-name" id="sgHitToName3">First</div></button>
+      <button class="sg-hitto-btn" onclick="sgPickFielder(1)"><div class="sg-hitto-lbl">P</div><div class="sg-hitto-name" id="sgHitToName1">Pitcher</div></button>
+      <button class="sg-hitto-btn" onclick="sgPickFielder(2)"><div class="sg-hitto-lbl">C</div><div class="sg-hitto-name" id="sgHitToName2">Catcher</div></button>
+    </div>
+    <button class="sg-hitto-gap" onclick="sgPickFielder(0)">No fielder / gap hit</button>
+  </div>
+
+  <!-- ═══════════════════ NEW: COACH-FRIENDLY BIP — STEP 2: WHAT HAPPENED ═══════════════════ -->
+  <div class="sg-outcome-panel" id="sgWhatHappenedPanel">
+    <div class="sg-outcome-title">
+      <span id="sgWhatHappenedTitle">⚡ WHAT HAPPENED?</span>
+      <button onclick="sgCloseWhatHappened()" style="background:none;border:none;color:var(--gray);font-size:20px;cursor:pointer;padding:0 4px;">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:12px;" id="sgWhatHappenedSub">Did the batter get on base?</div>
+    <div class="sg-whap-grid">
+      <button class="sg-whap-btn sg-whap-out" onclick="sgResolveBIP('out')">
+        <div class="sg-whap-icon" style="color:#f87171;">✗</div>
+        <div class="sg-whap-lbl">Out</div>
+        <div class="sg-whap-sub">Caught or thrown out</div>
+      </button>
+      <button class="sg-whap-btn sg-whap-hit" onclick="sgResolveBIP('1B')">
+        <div class="sg-whap-icon" style="color:#4ade80;">1B</div>
+        <div class="sg-whap-lbl">Single</div>
+        <div class="sg-whap-sub">Safe at 1st</div>
+      </button>
+      <button class="sg-whap-btn sg-whap-hit" onclick="sgResolveBIP('2B')">
+        <div class="sg-whap-icon" style="color:#4ade80;">2B</div>
+        <div class="sg-whap-lbl">Double</div>
+        <div class="sg-whap-sub">Safe at 2nd</div>
+      </button>
+      <button class="sg-whap-btn sg-whap-hit" onclick="sgResolveBIP('3B')">
+        <div class="sg-whap-icon" style="color:#4ade80;">3B</div>
+        <div class="sg-whap-lbl">Triple</div>
+        <div class="sg-whap-sub">Safe at 3rd</div>
+      </button>
+      <button class="sg-whap-btn sg-whap-hr" onclick="sgResolveBIP('HR')">
+        <div class="sg-whap-icon" style="color:var(--accent2);">HR</div>
+        <div class="sg-whap-lbl">Home Run</div>
+        <div class="sg-whap-sub">Out of the park!</div>
+      </button>
+      <button class="sg-whap-btn sg-whap-err" onclick="sgResolveBIP('E')">
+        <div class="sg-whap-icon" style="color:#f87171;">E</div>
+        <div class="sg-whap-lbl">Error</div>
+        <div class="sg-whap-sub">On base from a mistake</div>
+      </button>
+    </div>
+    <button class="sg-hitto-gap" onclick="sgBackToHitTo()" style="margin-top:8px;">← Back</button>
   </div>
 
 </div>
@@ -3149,7 +3233,7 @@ function sgPitchFromMenu(type) {
   if (type === 'bip') {
     SG.pitchCount++;
     if (p) p.strikes++;
-    sgOpenOutcomePicker('bip');
+    sgOpenHitTo();
     return;
   }
   // HBP — counts as 1 pitch (the ball that hit them); doesn't add to balls/strikes
@@ -3263,6 +3347,147 @@ function sgAutoResult(result) {
 }
 
 // ── Outcome picker ──
+// ── NEW: Coach-friendly Ball-in-Play flow ──
+// Step 1: Open "HIT TO" — pick fielder
+function sgOpenHitTo() {
+  // Populate fielder name labels from current defensive lineup
+  const defTeam = G.currentHalf === 'top' ? 'away' : 'home';
+  const defLineup = defTeam === 'home' ? G.homeLineup : G.awayLineup;
+  for (let pos = 1; pos <= 9; pos++) {
+    const el = document.getElementById('sgHitToName' + pos);
+    if (!el) continue;
+    const player = defLineup[pos - 1];
+    if (player && player.name) {
+      const lastName = player.name.split(' ').pop();
+      el.textContent = lastName;
+    }
+  }
+  document.getElementById('sgHitToPanel').classList.add('open');
+}
+
+function sgCloseHitTo() {
+  document.getElementById('sgHitToPanel').classList.remove('open');
+  // Roll back the pitch we counted at the start of BIP since coach bailed
+  if (SG.pitchCount > 0) {
+    SG.pitchCount--;
+    const p = getPitcherByKey(G.activePitcherKey);
+    if (p && p.strikes > 0) p.strikes--;
+    sgRefreshAll();
+  }
+}
+
+// Step 1 → Step 2: fielder picked (0 = no fielder / gap)
+function sgPickFielder(pos) {
+  SG.pendingFielders = pos === 0 ? [] : [pos];
+  document.getElementById('sgHitToPanel').classList.remove('open');
+  // Update Step 2 title with the fielder we picked
+  let fielderLabel = 'no fielder';
+  if (pos > 0) {
+    const posMap = {1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF'};
+    const defTeam = G.currentHalf === 'top' ? 'away' : 'home';
+    const defLineup = defTeam === 'home' ? G.homeLineup : G.awayLineup;
+    const player = defLineup[pos - 1];
+    fielderLabel = posMap[pos] + (player && player.name ? ' (' + player.name.split(' ').pop() + ')' : '');
+  }
+  document.getElementById('sgWhatHappenedSub').textContent = 'Hit to ' + fielderLabel + ' — what happened?';
+  document.getElementById('sgWhatHappenedPanel').classList.add('open');
+}
+
+function sgCloseWhatHappened() {
+  document.getElementById('sgWhatHappenedPanel').classList.remove('open');
+  // Roll back the pitch we counted at the start of BIP since coach bailed
+  if (SG.pitchCount > 0) {
+    SG.pitchCount--;
+    const p = getPitcherByKey(G.activePitcherKey);
+    if (p && p.strikes > 0) p.strikes--;
+    sgRefreshAll();
+  }
+}
+
+function sgBackToHitTo() {
+  document.getElementById('sgWhatHappenedPanel').classList.remove('open');
+  document.getElementById('sgHitToPanel').classList.add('open');
+}
+
+// Step 2: resolve the BIP into a scorebook result
+function sgResolveBIP(outcome) {
+  document.getElementById('sgWhatHappenedPanel').classList.remove('open');
+  const fielders = SG.pendingFielders || [];
+  const fielderPos = fielders[0] || 0;
+
+  let result, outSeq, baseTo;
+
+  if (outcome === 'out') {
+    // Translate fielder → out type:
+    // - Outfield (7,8,9) = Fly Out
+    // - Infield (1-6) or no fielder = Ground Out
+    result = 'GO';
+    if (fielderPos >= 7 && fielderPos <= 9) result = 'FO';
+    if (fielderPos === 0) result = 'FO'; // no fielder = default to fly
+    // Build out sequence — for ground outs, the fielder throws to 1B
+    outSeq = [];
+    if (fielderPos > 0) {
+      outSeq = (result === 'GO' && fielderPos !== 3) ? [fielderPos, 3] : [fielderPos];
+    }
+    baseTo = null;
+  } else if (outcome === 'E') {
+    result = 'E';
+    outSeq = fielderPos > 0 ? [fielderPos] : [];
+    baseTo = '1B';
+  } else {
+    // Hit (1B, 2B, 3B, HR)
+    result = outcome;
+    outSeq = fielderPos > 0 ? [fielderPos] : [];
+    baseTo = outcome === 'HR' ? 'Home' : outcome;
+  }
+
+  // ── Direct commit (bypass fielder modal) ──
+  const isOutPlay = OUTS_LIST.includes(result);
+  if (isOutPlay) {
+    SG.outs++;
+    halfInningOuts++;
+  }
+
+  // Advance runners on hits + HR scoring
+  let scored = false;
+  let rbi = 0;
+  if (HITS.includes(result)) {
+    // Count runners that score
+    if (result === 'HR') {
+      // HR scores everyone on base + batter
+      rbi = (SG.runners.first ? 1 : 0) + (SG.runners.second ? 1 : 0) + (SG.runners.third ? 1 : 0) + 1;
+      scored = true;
+    } else {
+      // Triple scores all runners; double scores 2nd & 3rd; single scores 3rd
+      if (result === '3B') {
+        rbi = (SG.runners.first ? 1 : 0) + (SG.runners.second ? 1 : 0) + (SG.runners.third ? 1 : 0);
+      } else if (result === '2B') {
+        rbi = (SG.runners.second ? 1 : 0) + (SG.runners.third ? 1 : 0);
+      } else if (result === '1B') {
+        rbi = (SG.runners.third ? 1 : 0);
+      }
+    }
+    sgAdvanceRunners(baseTo, scored);
+  } else if (result === 'E') {
+    // Error puts batter on first; treat like a single for runner advancement (conservative)
+    sgAdvanceRunners('1B', false);
+  }
+
+  SG.balls = 0;
+  SG.strikes = 0;
+
+  sgCommitToScorecard(result, outSeq, baseTo, scored, rbi);
+
+  if (isOutPlay && SG.outs >= 3) { sgThreeOuts(); return; }
+
+  // Build a friendly toast message
+  const labels = { GO:'Ground Out', FO:'Fly Out', E:'Error', '1B':'Single', '2B':'Double', '3B':'Triple', HR:'HOME RUN!' };
+  const toastMsg = (labels[result] || result) + (outSeq.length ? ' · ' + outSeq.join('-') : '');
+  showToast(toastMsg);
+  sgRefreshAll();
+}
+
+// ── Original outcome picker (kept for SKIP TO RESULT advanced path) ──
 function sgOpenOutcomePicker(mode) {
   document.getElementById('sgOutcomePanelTitle').textContent = mode === 'bip' ? '⚡ Ball in Play — Select Outcome' : 'Select Result';
   document.getElementById('sgOutcomePanel').classList.add('open');
