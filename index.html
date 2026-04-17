@@ -1350,23 +1350,23 @@ function renderScorecard(){
   const hth=document.createElement('th');hth.className='sc-total-header';hth.textContent='H';hth.style.minWidth='30px';hdr.appendChild(hth);
   const rbith=document.createElement('th');rbith.className='sc-total-header';rbith.textContent='RBI';hdr.appendChild(rbith);
 
-  // ── Home section header ──
-  const homeHdr=tbl.insertRow();
-  const hhc=document.createElement('td');hhc.colSpan=n+6;hhc.style.cssText='background:#0e2040;padding:4px 8px;font-family:Oswald,sans-serif;font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;border-top:2px solid var(--accent);';
-  hhc.textContent='▲ '+G.homeName+' — Home (Batting Top)';homeHdr.appendChild(hhc);
-
-  renderTeamRows(tbl,'home',n);
-
-  // Inning run totals for home
-  renderInningTotalsRow(tbl,'home',n);
-
-  // ── Away section header ──
+  // ── Away section header (bats first — top of inning) ──
   const awayHdr=tbl.insertRow();
-  const ahc=document.createElement('td');ahc.colSpan=n+6;ahc.style.cssText='background:#0e2040;padding:4px 8px;font-family:Oswald,sans-serif;font-size:11px;font-weight:700;color:#8a9bb5;text-transform:uppercase;letter-spacing:.08em;border-top:2px solid rgba(255,255,255,0.15);';
-  ahc.textContent='▼ '+G.awayName+' — Away (Batting Bottom)';awayHdr.appendChild(ahc);
+  const ahc=document.createElement('td');ahc.colSpan=n+6;ahc.style.cssText='background:#0e2040;padding:4px 8px;font-family:Oswald,sans-serif;font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;border-top:2px solid var(--accent);';
+  ahc.textContent='▲ '+G.awayName+' — Away (Batting Top)';awayHdr.appendChild(ahc);
 
   renderTeamRows(tbl,'away',n);
+
+  // Inning run totals for away
   renderInningTotalsRow(tbl,'away',n);
+
+  // ── Home section header (bats second — bottom of inning) ──
+  const homeHdr=tbl.insertRow();
+  const hhc=document.createElement('td');hhc.colSpan=n+6;hhc.style.cssText='background:#0e2040;padding:4px 8px;font-family:Oswald,sans-serif;font-size:11px;font-weight:700;color:#8a9bb5;text-transform:uppercase;letter-spacing:.08em;border-top:2px solid rgba(255,255,255,0.15);';
+  hhc.textContent='▼ '+G.homeName+' — Home (Batting Bottom)';homeHdr.appendChild(hhc);
+
+  renderTeamRows(tbl,'home',n);
+  renderInningTotalsRow(tbl,'home',n);
 }
 
 function renderTeamRows(tbl,team,n){
@@ -2100,8 +2100,8 @@ function renderLineupPage(){
     });
     wrap.appendChild(sec);
   };
-  mkSection('home',G.homeLineup,'▲ '+G.homeName+' (Home — Batting Top)');
-  mkSection('away',G.awayLineup,'▼ '+G.awayName+' (Away — Batting Bottom)');
+  mkSection('away',G.awayLineup,'▲ '+G.awayName+' (Away — Batting Top)');
+  mkSection('home',G.homeLineup,'▼ '+G.homeName+' (Home — Batting Bottom)');
 }
 
 // ══════════════════════════════════════════════
@@ -2803,8 +2803,8 @@ function openChangePitcherModal() {
     });
   };
 
-  mkSection('home', G.homePitchers || [], '▲ ' + G.homeName);
-  mkSection('away', G.awayPitchers || [], '▼ ' + G.awayName);
+  mkSection('away', G.awayPitchers || [], '▲ ' + G.awayName);
+  mkSection('home', G.homePitchers || [], '▼ ' + G.homeName);
 
   if (!G.homePitchers?.length && !G.awayPitchers?.length) {
     wrap.innerHTML = '<p style="color:var(--gray);font-size:13px;text-align:center;padding:20px 0;">No pitchers added yet.<br>Go to the Pitching tab to add pitchers.</p>';
