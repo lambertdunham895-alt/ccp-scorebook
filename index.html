@@ -305,6 +305,17 @@ select.form-input{appearance:none;}
 .sg-whap-icon{font-size:24px;font-weight:800;line-height:1;margin-bottom:4px;}
 .sg-whap-lbl{font-size:16px;font-weight:800;color:var(--white);text-transform:uppercase;letter-spacing:.04em;}
 .sg-whap-sub{font-size:11px;color:var(--gray);font-weight:500;line-height:1.2;}
+
+/* NEW: Runner advancement row */
+.sg-radv-row{background:rgba(255,255,255,0.04);border:1px solid var(--border2);border-radius:12px;padding:10px 12px;}
+.sg-radv-from{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--white);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;}
+.sg-radv-from-name{color:var(--accent);}
+.sg-radv-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
+.sg-radv-opt{background:rgba(255,255,255,0.05);border:1.5px solid var(--border2);border-radius:8px;padding:9px 4px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;color:var(--white);cursor:pointer;text-transform:uppercase;letter-spacing:.04em;transition:all .12s;}
+.sg-radv-opt:active{transform:scale(.94);}
+.sg-radv-opt.sel{background:var(--accent);color:var(--navy);border-color:var(--accent);}
+.sg-radv-opt.sel-out{background:#e53935;color:#fff;border-color:#e53935;}
+.sg-radv-opt.sel-score{background:#00c853;color:var(--navy);border-color:#00c853;}
 .sg-out-hit{background:rgba(0,200,83,.12);border:1.5px solid rgba(0,200,83,.35);color:var(--green);}
 .sg-out-walk{background:rgba(245,166,35,.1);border:1.5px solid rgba(245,166,35,.3);color:var(--accent);}
 .sg-out-out{background:rgba(229,57,53,.1);border:1.5px solid rgba(229,57,53,.3);color:var(--red);}
@@ -1122,6 +1133,27 @@ select.form-input{appearance:none;}
       </button>
     </div>
     <button class="sg-hitto-gap" onclick="sgBackToHitTo()" style="margin-top:8px;">← Back</button>
+  </div>
+
+  <!-- ═══════════════════ NEW: STEAL/CS RUNNER PICKER (only when 2+ runners on) ═══════════════════ -->
+  <div class="sg-outcome-panel" id="sgStealPickerPanel">
+    <div class="sg-outcome-title">
+      <span id="sgStealPickerTitle">⚡ STOLEN BASE — Which runner?</span>
+      <button onclick="sgCloseStealPicker()" style="background:none;border:none;color:var(--gray);font-size:20px;cursor:pointer;padding:0 4px;">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px;line-height:1.4;" id="sgStealPickerSub">Tap the runner who stole.</div>
+    <div id="sgStealPickerBtns" style="display:grid;grid-template-columns:1fr;gap:8px;"></div>
+  </div>
+
+  <!-- ═══════════════════ NEW: RUNNER ADVANCEMENT PANEL (after a hit, when runners on base) ═══════════════════ -->
+  <div class="sg-outcome-panel" id="sgRunnerAdvPanel">
+    <div class="sg-outcome-title">
+      <span id="sgRunnerAdvTitle">⚡ WHERE DID EACH RUNNER END UP?</span>
+      <button onclick="sgCloseRunnerAdv()" style="background:none;border:none;color:var(--gray);font-size:20px;cursor:pointer;padding:0 4px;">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--gray);margin-bottom:12px;line-height:1.4;" id="sgRunnerAdvSub">Pick the final base for each runner. Out = thrown out trying to advance.</div>
+    <div id="sgRunnerAdvList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;"></div>
+    <button class="sg-hitto-gap" onclick="sgConfirmRunnerAdv()" style="background:var(--accent);color:var(--navy);border:none;font-weight:800;">✓ CONFIRM</button>
   </div>
 
 </div>
@@ -3129,16 +3161,34 @@ function openPitcherStatsModal(team, idx) {
 let SG = {
   balls: 0, strikes: 0, outs: 0,
   pitchCount: 0,
-  runners: { first: false, second: false, third: false },
+  // Each base holds either null or { idx, half, inningIdx } so we can credit runs back to the right at-bat cell
+  runners: { first: null, second: null, third: null },
   pendingResult: null,  // result code waiting for fielder
   pendingFielders: [],
   pendingBaseTo: null
 };
 
+// ── Helper: build a runner record for the current batter ──
+function sgMakeRunner() {
+  return {
+    idx: G.currentHalf === 'top' ? G.homeBatterIdx : G.awayBatterIdx,
+    half: G.currentHalf,
+    inningIdx: G.currentInning - 1
+  };
+}
+
+// ── Helper: mark a runner as scored — sets `scored:true` on their original at-bat cell ──
+function sgMarkRunnerScored(runner) {
+  if (!runner || typeof runner !== 'object') return;
+  const cells = runner.half === 'top' ? G.homeCells : G.awayCells;
+  if (!cells[runner.idx] || !cells[runner.idx][runner.inningIdx]) return;
+  cells[runner.idx][runner.inningIdx].scored = true;
+}
+
 function enterScoreMode() {
   SG.balls = 0; SG.strikes = 0; SG.outs = halfInningOuts;
   SG.pitchCount = 0;
-  SG.runners = { first: false, second: false, third: false };
+  SG.runners = { first: null, second: null, third: null };
   SG.pendingResult = null; SG.pendingFielders = []; SG.pendingBaseTo = null;
   document.getElementById('scoreGameOverlay').classList.add('active');
   sgRender();
@@ -3337,11 +3387,25 @@ function sgAutoResult(result) {
     if (SG.outs >= 3) { sgThreeOuts(); return; }
   } else if (result === 'BB') {
     showToast('Ball 4 — Walk!');
-    // Advance runners if forced
-    if (SG.runners.second && SG.runners.first) SG.runners.third = true;
-    if (SG.runners.first) SG.runners.second = true;
-    SG.runners.first = true;
-    sgCommitToScorecard(result, [], '1B', false, 0);
+    // Force-advance runners (walks only force the back-runner)
+    let rbi = 0;
+    let scored = false;
+    // Bases loaded? Runner from 3rd scores
+    if (SG.runners.first && SG.runners.second && SG.runners.third) {
+      sgMarkRunnerScored(SG.runners.third);
+      rbi = 1;
+      SG.runners.third = SG.runners.second;
+      SG.runners.second = SG.runners.first;
+    } else if (SG.runners.first && SG.runners.second) {
+      // Runners on 1st & 2nd → 2nd-base runner forced to 3rd
+      SG.runners.third = SG.runners.second;
+      SG.runners.second = SG.runners.first;
+    } else if (SG.runners.first) {
+      // Just 1st → forced to 2nd
+      SG.runners.second = SG.runners.first;
+    }
+    SG.runners.first = sgMakeRunner();
+    sgCommitToScorecard(result, [], '1B', false, rbi);
   }
   sgRefreshAll();
 }
@@ -3418,13 +3482,9 @@ function sgResolveBIP(outcome) {
   let result, outSeq, baseTo;
 
   if (outcome === 'out') {
-    // Translate fielder → out type:
-    // - Outfield (7,8,9) = Fly Out
-    // - Infield (1-6) or no fielder = Ground Out
     result = 'GO';
     if (fielderPos >= 7 && fielderPos <= 9) result = 'FO';
-    if (fielderPos === 0) result = 'FO'; // no fielder = default to fly
-    // Build out sequence — for ground outs, the fielder throws to 1B
+    if (fielderPos === 0) result = 'FO';
     outSeq = [];
     if (fielderPos > 0) {
       outSeq = (result === 'GO' && fielderPos !== 3) ? [fielderPos, 3] : [fielderPos];
@@ -3435,55 +3495,200 @@ function sgResolveBIP(outcome) {
     outSeq = fielderPos > 0 ? [fielderPos] : [];
     baseTo = '1B';
   } else {
-    // Hit (1B, 2B, 3B, HR)
     result = outcome;
     outSeq = fielderPos > 0 ? [fielderPos] : [];
     baseTo = outcome === 'HR' ? 'Home' : outcome;
   }
 
-  // ── Direct commit (bypass fielder modal) ──
-  const isOutPlay = OUTS_LIST.includes(result);
-  if (isOutPlay) {
-    SG.outs++;
-    halfInningOuts++;
+  // Stash for runner-advancement step
+  SG.pendingPlay = { result, outSeq, baseTo, outcome };
+
+  // ── HR clears all bases automatically (everyone scores) — no picker needed ──
+  if (result === 'HR') {
+    return sgFinalizePlay({ batterEndsAt: 'Home', runnerFates: { first: 'Home', second: 'Home', third: 'Home' } });
   }
 
-  // Advance runners on hits + HR scoring
-  let scored = false;
-  let rbi = 0;
-  if (HITS.includes(result)) {
-    // Count runners that score
-    if (result === 'HR') {
-      // HR scores everyone on base + batter
-      rbi = (SG.runners.first ? 1 : 0) + (SG.runners.second ? 1 : 0) + (SG.runners.third ? 1 : 0) + 1;
-      scored = true;
-    } else {
-      // Triple scores all runners; double scores 2nd & 3rd; single scores 3rd
-      if (result === '3B') {
-        rbi = (SG.runners.first ? 1 : 0) + (SG.runners.second ? 1 : 0) + (SG.runners.third ? 1 : 0);
-      } else if (result === '2B') {
-        rbi = (SG.runners.second ? 1 : 0) + (SG.runners.third ? 1 : 0);
-      } else if (result === '1B') {
-        rbi = (SG.runners.third ? 1 : 0);
-      }
-    }
-    sgAdvanceRunners(baseTo, scored);
-  } else if (result === 'E') {
-    // Error puts batter on first; treat like a single for runner advancement (conservative)
-    sgAdvanceRunners('1B', false);
+  // ── If it's an OUT and no runners are on base → finalize directly ──
+  // ── If hit/error and no runners on base → finalize directly with batter advancing per result ──
+  const hasRunners = SG.runners.first || SG.runners.second || SG.runners.third;
+  if (!hasRunners) {
+    const batterEnd = (result === 'E' || result === '1B') ? '1B'
+                    : result === '2B' ? '2B'
+                    : result === '3B' ? '3B'
+                    : null; // outs: batter doesn't advance
+    return sgFinalizePlay({ batterEndsAt: batterEnd, runnerFates: {} });
   }
+
+  // ── Runners on base → open advancement picker ──
+  sgOpenRunnerAdv();
+}
+
+// ── Open the runner-advancement picker ──
+function sgOpenRunnerAdv() {
+  const play = SG.pendingPlay;
+  const labels = { GO:'Ground Out', FO:'Fly Out', '1B':'Single', '2B':'Double', '3B':'Triple', E:'Error' };
+  document.getElementById('sgRunnerAdvTitle').textContent = '⚡ ' + (labels[play.result] || play.result).toUpperCase() + ' — RUNNER ADVANCEMENT';
+  document.getElementById('sgRunnerAdvSub').textContent = 'Pick where each runner ended up. Tap "Score" if they crossed home.';
+
+  const list = document.getElementById('sgRunnerAdvList');
+  list.innerHTML = '';
+  SG.pendingFates = {};
+
+  const lineup = G.currentHalf === 'top' ? G.homeLineup : G.awayLineup;
+  const baseOrder = ['third', 'second', 'first']; // show lead runner first
+  const baseLabels = { first: '1st', second: '2nd', third: '3rd' };
+  const optionsByBase = {
+    first: ['1B', '2B', '3B', 'Score', 'Out'],
+    second: ['2B', '3B', 'Score', 'Out'],
+    third: ['3B', 'Score', 'Out']
+  };
+  // Smart defaults based on the hit:
+  const defaultsByPlay = {
+    '1B':   { first: '2B', second: '3B', third: 'Score' },
+    '2B':   { first: '3B', second: 'Score', third: 'Score' },
+    '3B':   { first: 'Score', second: 'Score', third: 'Score' },
+    'E':    { first: '2B', second: '3B', third: 'Score' },
+    'GO':   { first: '2B', second: '2B', third: '3B' }, // conservative — no advance
+    'FO':   { first: '1B', second: '2B', third: '3B' }  // tag-up situation, default no advance
+  };
+  const defaults = defaultsByPlay[play.result] || {};
+
+  baseOrder.forEach(base => {
+    const runner = SG.runners[base];
+    if (!runner) return;
+    const player = lineup[runner.idx];
+    const playerName = player ? player.name.split(' ').pop() : 'Runner';
+    const playerNum = player && player.num ? '#' + player.num + ' ' : '';
+
+    const row = document.createElement('div');
+    row.className = 'sg-radv-row';
+    row.innerHTML = `<div class="sg-radv-from">Runner from ${baseLabels[base]} — <span class="sg-radv-from-name">${playerNum}${playerName}</span></div>`;
+    const btnWrap = document.createElement('div');
+    btnWrap.className = 'sg-radv-btns';
+
+    const opts = optionsByBase[base];
+    const defaultChoice = defaults[base] || base.replace('first','1B').replace('second','2B').replace('third','3B');
+    SG.pendingFates[base] = defaultChoice;
+
+    opts.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'sg-radv-opt';
+      btn.textContent = opt;
+      if (opt === defaultChoice) {
+        btn.classList.add(opt === 'Score' ? 'sel-score' : opt === 'Out' ? 'sel-out' : 'sel');
+      }
+      btn.onclick = () => {
+        SG.pendingFates[base] = opt;
+        // Update visual selection
+        btnWrap.querySelectorAll('.sg-radv-opt').forEach(b => {
+          b.classList.remove('sel', 'sel-out', 'sel-score');
+        });
+        btn.classList.add(opt === 'Score' ? 'sel-score' : opt === 'Out' ? 'sel-out' : 'sel');
+      };
+      btnWrap.appendChild(btn);
+    });
+    row.appendChild(btnWrap);
+    list.appendChild(row);
+  });
+
+  document.getElementById('sgRunnerAdvPanel').classList.add('open');
+}
+
+function sgCloseRunnerAdv() {
+  document.getElementById('sgRunnerAdvPanel').classList.remove('open');
+  // Roll back the pitch we counted at the start of BIP since coach bailed
+  if (SG.pitchCount > 0) {
+    SG.pitchCount--;
+    const p = getPitcherByKey(G.activePitcherKey);
+    if (p && p.strikes > 0) p.strikes--;
+    sgRefreshAll();
+  }
+  SG.pendingPlay = null;
+  SG.pendingFates = null;
+}
+
+function sgConfirmRunnerAdv() {
+  document.getElementById('sgRunnerAdvPanel').classList.remove('open');
+  const play = SG.pendingPlay;
+  // Where does the BATTER end up?
+  let batterEnd = null;
+  if (play.result === '1B' || play.result === 'E') batterEnd = '1B';
+  else if (play.result === '2B') batterEnd = '2B';
+  else if (play.result === '3B') batterEnd = '3B';
+  // outs: batter doesn't advance
+  sgFinalizePlay({ batterEndsAt: batterEnd, runnerFates: SG.pendingFates || {} });
+}
+
+// ── Finalize: apply runner fates, score runs, commit play ──
+function sgFinalizePlay(opts) {
+  const play = SG.pendingPlay;
+  if (!play) return;
+  const { batterEndsAt, runnerFates } = opts;
+  const { result, outSeq, baseTo } = play;
+
+  // Snapshot runners before we move them
+  const r1 = SG.runners.first;
+  const r2 = SG.runners.second;
+  const r3 = SG.runners.third;
+
+  // Process each existing runner per their fate
+  let rbi = 0;
+  let extraOuts = 0;
+  const newRunners = { first: null, second: null, third: null };
+
+  const applyFate = (runner, fate) => {
+    if (!runner) return;
+    if (fate === 'Score') {
+      sgMarkRunnerScored(runner);
+      rbi++;
+    } else if (fate === 'Out') {
+      extraOuts++;
+    } else if (fate === '1B') {
+      newRunners.first = runner;
+    } else if (fate === '2B') {
+      newRunners.second = runner;
+    } else if (fate === '3B') {
+      newRunners.third = runner;
+    }
+  };
+
+  applyFate(r3, runnerFates.third || (r3 ? '3B' : null));
+  applyFate(r2, runnerFates.second || (r2 ? '2B' : null));
+  applyFate(r1, runnerFates.first || (r1 ? '1B' : null));
+
+  // Place the batter (or score them on HR)
+  let batterScored = false;
+  if (batterEndsAt === 'Home') {
+    batterScored = true;
+    rbi++; // HR — batter's own run counts as RBI
+  } else if (batterEndsAt === '1B') {
+    newRunners.first = sgMakeRunner();
+  } else if (batterEndsAt === '2B') {
+    newRunners.second = sgMakeRunner();
+  } else if (batterEndsAt === '3B') {
+    newRunners.third = sgMakeRunner();
+  }
+
+  SG.runners = newRunners;
+
+  // Apply batter's out (for outs only — extras counted via extraOuts)
+  const isOutPlay = OUTS_LIST.includes(result);
+  if (isOutPlay) { SG.outs++; halfInningOuts++; }
+  if (extraOuts > 0) { SG.outs += extraOuts; halfInningOuts += extraOuts; }
 
   SG.balls = 0;
   SG.strikes = 0;
 
-  sgCommitToScorecard(result, outSeq, baseTo, scored, rbi);
+  sgCommitToScorecard(result, outSeq, baseTo, batterScored, rbi);
 
-  if (isOutPlay && SG.outs >= 3) { sgThreeOuts(); return; }
+  if (SG.outs >= 3) { sgThreeOuts(); SG.pendingPlay = null; SG.pendingFates = null; return; }
 
-  // Build a friendly toast message
   const labels = { GO:'Ground Out', FO:'Fly Out', E:'Error', '1B':'Single', '2B':'Double', '3B':'Triple', HR:'HOME RUN!' };
-  const toastMsg = (labels[result] || result) + (outSeq.length ? ' · ' + outSeq.join('-') : '');
-  showToast(toastMsg);
+  const runMsg = rbi > 0 ? ' · ' + rbi + ' RBI' : '';
+  showToast((labels[result] || result) + (outSeq.length ? ' · ' + outSeq.join('-') : '') + runMsg);
+
+  SG.pendingPlay = null;
+  SG.pendingFates = null;
   sgRefreshAll();
 }
 
@@ -3626,28 +3831,44 @@ function sgCommitPlay() {
 }
 
 function sgAdvanceRunners(baseTo, scored) {
-  // Simple runner advancement based on baseTo
-  if (baseTo === 'Home' || scored) {
-    SG.runners = { first: false, second: false, third: false };
+  // Used by the legacy "SKIP TO RESULT" path. Auto-advances runners using standard rules.
+  // Credits scored runs back to the right at-bat cells.
+  // baseTo = where the BATTER ends up.
+
+  const r1 = SG.runners.first;
+  const r2 = SG.runners.second;
+  const r3 = SG.runners.third;
+
+  if (baseTo === 'Home') {
+    // HR — everyone scores including batter
+    if (r1) sgMarkRunnerScored(r1);
+    if (r2) sgMarkRunnerScored(r2);
+    if (r3) sgMarkRunnerScored(r3);
+    SG.runners = { first: null, second: null, third: null };
     return;
   }
+
   if (baseTo === '3B') {
-    if (SG.runners.second) { /* runner scores */ }
-    SG.runners.third = SG.runners.second;
-    SG.runners.second = SG.runners.first;
-    SG.runners.first = true;
+    // Triple — batter to 3rd, every runner scores
+    if (r1) sgMarkRunnerScored(r1);
+    if (r2) sgMarkRunnerScored(r2);
+    if (r3) sgMarkRunnerScored(r3);
+    SG.runners = { first: null, second: null, third: sgMakeRunner() };
     return;
   }
+
   if (baseTo === '2B') {
-    SG.runners.third = SG.runners.second;
-    SG.runners.second = SG.runners.first;
-    SG.runners.first = true;
+    // Double — batter to 2nd, runners on 2nd & 3rd score, runner on 1st to 3rd
+    if (r2) sgMarkRunnerScored(r2);
+    if (r3) sgMarkRunnerScored(r3);
+    SG.runners = { first: null, second: sgMakeRunner(), third: r1 };
     return;
   }
-  // 1B — force advance if occupied
-  if (SG.runners.first && SG.runners.second) SG.runners.third = true;
-  if (SG.runners.first) SG.runners.second = true;
-  SG.runners.first = true;
+
+  // baseTo === '1B' (single, walk, HBP, error)
+  // Runner on 3rd scores; runner on 2nd to 3rd; runner on 1st to 2nd; batter to 1st
+  if (r3) sgMarkRunnerScored(r3);
+  SG.runners = { first: sgMakeRunner(), second: r1, third: r2 };
 }
 
 // ── Commit to the actual scorecard G state ──
@@ -3697,20 +3918,18 @@ function sgCommitToScorecard(result, outSeq, baseTo, scored, rbi) {
 
 // ── Runner events from scoring screen ──
 function sgRunnerEvent(result) {
+  // ── NEW: SB and CS get the smart fast-path flow ──
+  if (result === 'SB' || result === 'CS') {
+    return sgQuickStealOrCaught(result);
+  }
+
   SG.pendingResult = result;
   SG.pendingFielders = [];
   SG.pendingBaseTo = null;
 
-  // CS needs fielder
-  if (result === 'CS') {
-    sgOpenFielderModal(result);
-    return;
-  }
-
   // Others — pick base advanced to
   const baseWrap = document.getElementById('sgBaseSelector');
   document.getElementById('sgFielderTitle').textContent = {
-    SB: 'Stolen Base — runner advanced to',
     WP: 'Wild Pitch — runner advanced to',
     PB: 'Passed Ball — runner advanced to',
     BK: 'Balk — runner advanced to'
@@ -3736,11 +3955,95 @@ function sgRunnerEvent(result) {
   openModal('sgFielderModal');
 }
 
+// ── NEW: Quick steal / caught stealing flow ──
+function sgQuickStealOrCaught(result) {
+  // Count runners on base
+  const runnersOn = [];
+  if (SG.runners.first) runnersOn.push('first');
+  if (SG.runners.second) runnersOn.push('second');
+  if (SG.runners.third) runnersOn.push('third');
+
+  if (runnersOn.length === 0) {
+    showToast('No runners on base');
+    return;
+  }
+
+  // Stash the result type for the picker callback
+  SG.pendingStealResult = result;
+
+  // Auto-execute when only 1 runner; otherwise ask
+  if (runnersOn.length === 1) {
+    sgExecuteSteal(runnersOn[0], result);
+  } else {
+    sgOpenStealRunnerPicker(runnersOn, result);
+  }
+}
+
+function sgOpenStealRunnerPicker(runnersOn, result) {
+  const baseLabels = { first: '1st', second: '2nd', third: '3rd' };
+  const isCS = result === 'CS';
+  const titleEl = document.getElementById('sgStealPickerTitle');
+  const subEl = document.getElementById('sgStealPickerSub');
+  const btnsEl = document.getElementById('sgStealPickerBtns');
+  titleEl.textContent = isCS ? '✗ CAUGHT STEALING — Which runner?' : '⚡ STOLEN BASE — Which runner?';
+  subEl.textContent = isCS ? 'Tap the runner who was thrown out.' : 'Tap the runner who stole.';
+  btnsEl.innerHTML = '';
+  runnersOn.forEach(base => {
+    const btn = document.createElement('button');
+    btn.className = 'sg-hitto-btn';
+    btn.style.cssText = 'padding:16px 8px;';
+    const goingTo = base === 'first' ? '2nd' : base === 'second' ? '3rd' : 'Home';
+    btn.innerHTML = `<div class="sg-hitto-lbl">Runner on ${baseLabels[base]}</div><div class="sg-hitto-name">${isCS ? 'thrown out at ' + goingTo : 'steals ' + goingTo}</div>`;
+    btn.onclick = () => {
+      document.getElementById('sgStealPickerPanel').classList.remove('open');
+      sgExecuteSteal(base, result);
+    };
+    btnsEl.appendChild(btn);
+  });
+  document.getElementById('sgStealPickerPanel').classList.add('open');
+}
+
+function sgCloseStealPicker() {
+  document.getElementById('sgStealPickerPanel').classList.remove('open');
+}
+
+function sgExecuteSteal(fromBase, result) {
+  const baseToMap = { first: '2B', second: '3B', third: 'Home' };
+  const baseTo = baseToMap[fromBase];
+  const labels = { first: '1st', second: '2nd', third: '3rd' };
+  const runner = SG.runners[fromBase]; // preserve identity
+
+  if (result === 'SB') {
+    if (baseTo === 'Home') {
+      // Stole home — credit the runner who scored
+      sgMarkRunnerScored(runner);
+      SG.runners[fromBase] = null;
+      sgCommitToScorecard('SB', [], 'Home', false, 0);
+      showToast('🏃 Runner stole home!');
+    } else {
+      const toKey = baseTo === '2B' ? 'second' : 'third';
+      SG.runners[fromBase] = null;
+      SG.runners[toKey] = runner;
+      sgCommitToScorecard('SB', [], baseTo, false, 0);
+      showToast('🏃 Stolen base — to ' + baseTo);
+    }
+  } else {
+    // Caught stealing — runner is out
+    SG.runners[fromBase] = null;
+    SG.outs++;
+    halfInningOuts++;
+    sgCommitToScorecard('CS', [], null, false, 0);
+    showToast('✗ Caught stealing from ' + labels[fromBase]);
+    if (SG.outs >= 3) { sgThreeOuts(); return; }
+  }
+  sgRefreshAll();
+}
+
 // ── 3 outs — switch sides ──
 function sgThreeOuts() {
   halfInningOuts = 0;
   SG.balls = 0; SG.strikes = 0; SG.outs = 0;
-  SG.runners = { first: false, second: false, third: false };
+  SG.runners = { first: null, second: null, third: null };
   persist();
   nextInning();
   sgRefreshAll();
