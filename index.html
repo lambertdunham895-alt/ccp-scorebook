@@ -3431,9 +3431,10 @@ function sgPitchFromMenu(type) {
     return;
   }
   // HBP — counts as 1 pitch (the ball that hit them); doesn't add to balls/strikes
+  // Auto-advance runners like a walk (force only)
   if (type === 'hbp') {
     SG.pitchCount++;
-    sgSelectOutcome('HBP');
+    sgAutoResult('HBP');
     return;
   }
   // IBB — modern rule: 0 pitches required for intentional walk
@@ -3532,9 +3533,9 @@ function sgAutoResult(result) {
     showToast(result === 'Kl' ? 'Strike 3 — Called Strikeout!' : 'Strike 3 — Strikeout!');
     sgCommitToScorecard(result, [], null, false, 0);
     if (SG.outs >= 3) { sgThreeOuts(); return; }
-  } else if (result === 'BB') {
-    showToast('Ball 4 — Walk!');
-    // Force-advance runners (walks only force the back-runner)
+  } else if (result === 'BB' || result === 'HBP') {
+    showToast(result === 'HBP' ? 'Hit by Pitch!' : 'Ball 4 — Walk!');
+    // Force-advance runners (walks and HBP only force the back-runner)
     let rbi = 0;
     let scored = false;
     // Bases loaded? Runner from 3rd scores
@@ -3551,6 +3552,7 @@ function sgAutoResult(result) {
       // Just 1st → forced to 2nd
       SG.runners.second = SG.runners.first;
     }
+    // Note: runner on 2nd alone or 3rd alone does NOT advance on HBP/BB
     SG.runners.first = sgMakeRunner();
     sgCommitToScorecard(result, [], '1B', false, rbi);
   }
@@ -3856,6 +3858,13 @@ function sgCloseOutcomePicker() {
 
 function sgSelectOutcome(result) {
   sgCloseOutcomePicker();
+
+  // HBP — skip all modals, auto-force-advance runners like a walk
+  if (result === 'HBP') {
+    sgAutoResult('HBP');
+    return;
+  }
+
   SG.pendingResult = result;
   SG.pendingFielders = [];
   SG.pendingBaseTo = null;
