@@ -2146,6 +2146,20 @@ function setPlayerPosition(pos) {
     });
   }
   player.pos = pos;
+  // If they were assigned P, sync them into the pitcher list immediately
+  if (pos === 'P') {
+    ensurePitchers();
+    // Auto-set as active pitcher if their team doesn't already have one picked.
+    // Key format: "home-N" or "away-N" where N is their index in the pitcher list.
+    const pitchers = team === 'home' ? G.homePitchers : G.awayPitchers;
+    const pIdx = pitchers.findIndex(p => p.name === player.name && (p.num || '') === (player.num || ''));
+    const currentKey = G.activePitcherKey || '';
+    const teamAlreadyHasActive = currentKey.startsWith(team + '-');
+    if (pIdx >= 0 && !teamAlreadyHasActive) {
+      G.activePitcherKey = team + '-' + pIdx;
+      if (typeof renderActivePitcherBanner === 'function') renderActivePitcherBanner();
+    }
+  }
   persist();
   closeModal('positionPickerModal');
   renderLineupPage();
@@ -2965,6 +2979,27 @@ let activePitcherKey = null; // "home-0", "away-1" etc
 function ensurePitchers() {
   if (!G.homePitchers) G.homePitchers = [];
   if (!G.awayPitchers) G.awayPitchers = [];
+  // Auto-sync: any player assigned 'P' in the lineup gets added to the pitcher list
+  // (if they're not already there). Match by name+num so we don't duplicate.
+  syncPitchersFromLineup('home');
+  syncPitchersFromLineup('away');
+}
+
+function syncPitchersFromLineup(team) {
+  const lineup = team === 'home' ? G.homeLineup : G.awayLineup;
+  const pitchers = team === 'home' ? G.homePitchers : G.awayPitchers;
+  if (!lineup || !lineup.length) return;
+  lineup.forEach(pl => {
+    if (!pl || pl.pos !== 'P') return;
+    const already = pitchers.find(p => p.name === pl.name && (p.num || '') === (pl.num || ''));
+    if (!already) {
+      pitchers.push({
+        name: pl.name,
+        num: pl.num || '',
+        balls: 0, strikes: 0, hits: 0, walks: 0, ks: 0, runs: 0, outs: 0
+      });
+    }
+  });
 }
 
 function showPitchingTeam(team) {
