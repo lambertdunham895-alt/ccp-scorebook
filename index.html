@@ -1382,7 +1382,7 @@ function renderTeamRows(tbl,team,n){
 
   lineup.forEach((player,pi)=>{
     const row=tbl.insertRow();
-    row.style.borderLeft=pi===activeBatter&&((team==='home'&&G.currentHalf==='top')||(team==='away'&&G.currentHalf==='bot'))
+    row.style.borderLeft=pi===activeBatter&&((team==='away'&&G.currentHalf==='top')||(team==='home'&&G.currentHalf==='bot'))
       ?'3px solid var(--accent)':'3px solid transparent';
 
     // Player name cell — tappable for stats
@@ -1401,7 +1401,7 @@ function renderTeamRows(tbl,team,n){
     for(let i=0;i<n;i++){
       const cell=document.createElement('td');
       cell.className='sc-inning-cell';
-      const isCurrent=(i+1===G.currentInning)&&((team==='home'&&G.currentHalf==='top')||(team==='away'&&G.currentHalf==='bot'));
+      const isCurrent=(i+1===G.currentInning)&&((team==='away'&&G.currentHalf==='top')||(team==='home'&&G.currentHalf==='bot'));
       if(isCurrent)cell.classList.add('current-inn');
       const play=cells[pi]&&cells[pi][i]?cells[pi][i]:null;
       if(play)cell.classList.add('filled');
@@ -1905,7 +1905,7 @@ function commitAtBat(){
   if(AB.baseTo) logText+=' → '+AB.baseTo;
   if(AB.scored) logText+=' · Scored';
   if(AB.rbi>0) logText+=' · '+AB.rbi+' RBI';
-  const inn=(AB.inning+1)+(AB.half==='home'?' Top':' Bot');
+  const inn=(AB.inning+1)+(AB.half==='away'?' Top':' Bot');
 
   G.playLog.push({
     inningStr:inn,
@@ -3171,7 +3171,7 @@ let SG = {
 // ── Helper: build a runner record for the current batter ──
 function sgMakeRunner() {
   return {
-    idx: G.currentHalf === 'top' ? G.homeBatterIdx : G.awayBatterIdx,
+    idx: G.currentHalf === 'top' ? G.awayBatterIdx : G.homeBatterIdx,
     half: G.currentHalf,
     inningIdx: G.currentInning - 1
   };
@@ -3180,7 +3180,7 @@ function sgMakeRunner() {
 // ── Helper: mark a runner as scored — sets `scored:true` on their original at-bat cell ──
 function sgMarkRunnerScored(runner) {
   if (!runner || typeof runner !== 'object') return;
-  const cells = runner.half === 'top' ? G.homeCells : G.awayCells;
+  const cells = runner.half === 'top' ? G.awayCells : G.homeCells;
   if (!cells[runner.idx] || !cells[runner.idx][runner.inningIdx]) return;
   cells[runner.idx][runner.inningIdx].scored = true;
 }
@@ -3236,8 +3236,8 @@ function sgRender() {
 
   // Batter info
   const half = G.currentHalf;
-  const lineup = half === 'top' ? G.homeLineup : G.awayLineup;
-  const idx = half === 'top' ? G.homeBatterIdx : G.awayBatterIdx;
+  const lineup = half === 'top' ? G.awayLineup : G.homeLineup;
+  const idx = half === 'top' ? G.awayBatterIdx : G.homeBatterIdx;
   const batter = lineup[idx];
   const nextIdx = lineup.length ? (idx + 1) % lineup.length : 0;
   const onDeck = lineup[nextIdx];
@@ -3336,7 +3336,8 @@ function sgRenderRunners() {
 
 function sgUpdatePositionLabels() {
   // Show defensive team players at their positions
-  const defTeam = G.currentHalf === 'top' ? 'away' : 'home';
+  // Top of inning = away bats, home fields. Bottom = home bats, away fields.
+  const defTeam = G.currentHalf === 'top' ? 'home' : 'away';
   const defLineup = defTeam === 'home' ? G.homeLineup : G.awayLineup;
   const posMap = {1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF'};
 
@@ -3415,7 +3416,7 @@ function sgAutoResult(result) {
 // Step 1: Open "HIT TO" — pick fielder
 function sgOpenHitTo() {
   // Populate fielder name labels from current defensive lineup
-  const defTeam = G.currentHalf === 'top' ? 'away' : 'home';
+  const defTeam = G.currentHalf === 'top' ? 'home' : 'away';
   const defLineup = defTeam === 'home' ? G.homeLineup : G.awayLineup;
   for (let pos = 1; pos <= 9; pos++) {
     const el = document.getElementById('sgHitToName' + pos);
@@ -3448,7 +3449,7 @@ function sgPickFielder(pos) {
   let fielderLabel = 'no fielder';
   if (pos > 0) {
     const posMap = {1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF'};
-    const defTeam = G.currentHalf === 'top' ? 'away' : 'home';
+    const defTeam = G.currentHalf === 'top' ? 'home' : 'away';
     const defLineup = defTeam === 'home' ? G.homeLineup : G.awayLineup;
     const player = defLineup[pos - 1];
     fielderLabel = posMap[pos] + (player && player.name ? ' (' + player.name.split(' ').pop() + ')' : '');
@@ -3534,7 +3535,7 @@ function sgOpenRunnerAdv() {
   list.innerHTML = '';
   SG.pendingFates = {};
 
-  const lineup = G.currentHalf === 'top' ? G.homeLineup : G.awayLineup;
+  const lineup = G.currentHalf === 'top' ? G.awayLineup : G.homeLineup;
   const baseOrder = ['third', 'second', 'first']; // show lead runner first
   const baseLabels = { first: '1st', second: '2nd', third: '3rd' };
   const optionsByBase = {
@@ -3874,9 +3875,9 @@ function sgAdvanceRunners(baseTo, scored) {
 // ── Commit to the actual scorecard G state ──
 function sgCommitToScorecard(result, outSeq, baseTo, scored, rbi) {
   const half = G.currentHalf;
-  const lineup = half === 'top' ? G.homeLineup : G.awayLineup;
-  const cells = half === 'top' ? G.homeCells : G.awayCells;
-  const idx = half === 'top' ? G.homeBatterIdx : G.awayBatterIdx;
+  const lineup = half === 'top' ? G.awayLineup : G.homeLineup;
+  const cells = half === 'top' ? G.awayCells : G.homeCells;
+  const idx = half === 'top' ? G.awayBatterIdx : G.homeBatterIdx;
   const inningIdx = G.currentInning - 1;
 
   if (!cells[idx]) cells[idx] = Array(G.totalInnings).fill(null);
@@ -3893,8 +3894,8 @@ function sgCommitToScorecard(result, outSeq, baseTo, scored, rbi) {
 
   // Advance batter (unless runner event)
   if (!RUNNER_EVENTS.includes(result)) {
-    if (half === 'top') G.homeBatterIdx = (idx + 1) % Math.max(lineup.length, 1);
-    else G.awayBatterIdx = (idx + 1) % Math.max(lineup.length, 1);
+    if (half === 'top') G.awayBatterIdx = (idx + 1) % Math.max(lineup.length, 1);
+    else G.homeBatterIdx = (idx + 1) % Math.max(lineup.length, 1);
   }
 
   // Play log
@@ -4047,7 +4048,7 @@ function sgThreeOuts() {
   persist();
   nextInning();
   sgRefreshAll();
-  showToast('3 Outs — ' + (G.currentHalf === 'top' ? G.homeName : G.awayName) + ' now batting');
+  showToast('3 Outs — ' + (G.currentHalf === 'top' ? G.awayName : G.homeName) + ' now batting');
 }
 
 init();
