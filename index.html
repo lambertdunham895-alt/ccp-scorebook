@@ -711,6 +711,43 @@ select.form-input{appearance:none;}
   </div>
 </div>
 
+<!-- ═══════════════════ POSITION PICKER MODAL ═══════════════════ -->
+<div class="modal-overlay" id="positionPickerModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🧢 Assign Position</div>
+    <div id="posPickerPlayerName" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent);margin-bottom:4px;text-align:center;"></div>
+    <p style="font-size:12px;color:var(--gray);margin-bottom:14px;text-align:center;">Tap a position to assign it to this player.</p>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
+      <button class="pos-pick-btn" data-pos="P" onclick="setPlayerPosition('P')">1 · P</button>
+      <button class="pos-pick-btn" data-pos="C" onclick="setPlayerPosition('C')">2 · C</button>
+      <button class="pos-pick-btn" data-pos="1B" onclick="setPlayerPosition('1B')">3 · 1B</button>
+      <button class="pos-pick-btn" data-pos="2B" onclick="setPlayerPosition('2B')">4 · 2B</button>
+      <button class="pos-pick-btn" data-pos="3B" onclick="setPlayerPosition('3B')">5 · 3B</button>
+      <button class="pos-pick-btn" data-pos="SS" onclick="setPlayerPosition('SS')">6 · SS</button>
+      <button class="pos-pick-btn" data-pos="LF" onclick="setPlayerPosition('LF')">7 · LF</button>
+      <button class="pos-pick-btn" data-pos="CF" onclick="setPlayerPosition('CF')">8 · CF</button>
+      <button class="pos-pick-btn" data-pos="RF" onclick="setPlayerPosition('RF')">9 · RF</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;">
+      <button class="pos-pick-btn" data-pos="DH" onclick="setPlayerPosition('DH')">DH</button>
+      <button class="pos-pick-btn" data-pos="Bench" onclick="setPlayerPosition('Bench')">Bench</button>
+    </div>
+
+    <div class="flex-row" style="gap:10px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="setPlayerPosition('')">Clear Position</button>
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('positionPickerModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+<style>
+.pos-pick-btn{background:rgba(245,166,35,.08);border:1.5px solid var(--border2);border-radius:8px;padding:12px 6px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--white);cursor:pointer;text-align:center;}
+.pos-pick-btn:active{background:rgba(245,166,35,.2);border-color:var(--accent);}
+.pos-pick-btn.taken{opacity:.5;border-style:dashed;}
+</style>
+
 <!-- ═══════════════════ RESET CONFIRM MODAL ═══════════════════ -->
 <div class="modal-overlay" id="resetConfirmModal">
   <div class="modal">
@@ -2067,6 +2104,56 @@ function confirmDeletePlayer(){
   showToast(name+' removed');
 }
 
+// ── Position picker ──
+let pendingPosPick = { team: null, idx: null };
+function openPositionPicker(team, idx) {
+  pendingPosPick.team = team;
+  pendingPosPick.idx = idx;
+  const lineup = team === 'home' ? G.homeLineup : G.awayLineup;
+  const player = lineup[idx];
+  if (!player) return;
+  document.getElementById('posPickerPlayerName').textContent = player.name + (player.num ? ' #' + player.num : '');
+  // Mark positions already taken by OTHER players on the same team
+  const taken = {};
+  lineup.forEach((p, i) => {
+    if (i !== idx && p.pos && !['DH', 'Bench', ''].includes(p.pos)) {
+      taken[p.pos] = p.name;
+    }
+  });
+  document.querySelectorAll('#positionPickerModal .pos-pick-btn').forEach(btn => {
+    const pos = btn.dataset.pos;
+    if (taken[pos]) {
+      btn.classList.add('taken');
+      btn.title = 'Currently ' + taken[pos];
+    } else {
+      btn.classList.remove('taken');
+      btn.title = '';
+    }
+  });
+  openModal('positionPickerModal');
+}
+
+function setPlayerPosition(pos) {
+  const { team, idx } = pendingPosPick;
+  if (team == null || idx == null) return;
+  const lineup = team === 'home' ? G.homeLineup : G.awayLineup;
+  const player = lineup[idx];
+  if (!player) return;
+  // If assigning a real fielding position (not DH/Bench/clear), clear that position from any other player on the same team
+  if (pos && !['DH', 'Bench'].includes(pos)) {
+    lineup.forEach((p, i) => {
+      if (i !== idx && p.pos === pos) p.pos = '';
+    });
+  }
+  player.pos = pos;
+  persist();
+  closeModal('positionPickerModal');
+  renderLineupPage();
+  renderScorecard();
+  if (typeof sgUpdatePositionLabels === 'function') sgUpdatePositionLabels();
+  showToast(pos ? player.name + ' → ' + pos : player.name + ' position cleared');
+}
+
 function renderLineupPage(){
   const wrap=document.getElementById('lineupList');
   wrap.innerHTML='';
@@ -2087,12 +2174,19 @@ function renderLineupPage(){
     }
     lineup.forEach((pl,i)=>{
       const row=document.createElement('div');row.className='player-row';
+      const posDisplay = pl.pos ? pl.pos : '—';
+      const posColor = pl.pos ? 'var(--accent)' : 'var(--gray)';
       row.innerHTML=`<div class="bat-num">${i+1}</div>
         <div style="flex:1;"><div style="font-size:13px;font-weight:600;">${pl.name}${pl.num?' <span style="color:var(--gray);font-size:11px;">#'+pl.num+'</span>':''}</div></div>
-        <button class="btn btn-sm btn-danger del-btn" data-team="${team}" data-idx="${i}" style="flex-shrink:0;">✕ Remove</button>`;
+        <button class="pos-btn" data-team="${team}" data-idx="${i}" style="flex-shrink:0;background:rgba(245,166,35,.1);border:1.5px solid ${posColor};border-radius:6px;padding:6px 10px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;color:${posColor};cursor:pointer;min-width:44px;margin-right:6px;">${posDisplay}</button>
+        <button class="btn btn-sm btn-danger del-btn" data-team="${team}" data-idx="${i}" style="flex-shrink:0;">✕</button>`;
       row.querySelector('.del-btn').addEventListener('click', function(e){
         e.stopPropagation();
         removePlayerFromLineup(this.dataset.team, parseInt(this.dataset.idx));
+      });
+      row.querySelector('.pos-btn').addEventListener('click', function(e){
+        e.stopPropagation();
+        openPositionPicker(this.dataset.team, parseInt(this.dataset.idx));
       });
       sec.appendChild(row);
     });
@@ -3342,13 +3436,15 @@ function sgUpdatePositionLabels() {
   for (let pos = 1; pos <= 9; pos++) {
     const el = document.getElementById('sgLabel' + pos);
     if (!el) continue;
-    const player = defLineup[pos - 1]; // simple index mapping for little league
+    // Find the player on the defensive team who has this position assigned
+    const posAbbr = posMap[pos];
+    const player = defLineup.find(p => p && p.pos === posAbbr);
     if (player && player.name) {
       const lastName = player.name.split(' ').pop();
       const jersey = player.num ? '#' + player.num : '';
       el.innerHTML = `<div style="font-size:10px;opacity:.75;">${jersey}</div><div>${lastName}</div>`;
     } else {
-      el.textContent = posMap[pos];
+      el.textContent = posAbbr;
     }
   }
 }
@@ -3416,13 +3512,17 @@ function sgOpenHitTo() {
   // Populate fielder name labels from current defensive lineup
   const defTeam = G.currentHalf === 'top' ? 'home' : 'away';
   const defLineup = defTeam === 'home' ? G.homeLineup : G.awayLineup;
+  const posMap = {1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF'};
   for (let pos = 1; pos <= 9; pos++) {
     const el = document.getElementById('sgHitToName' + pos);
     if (!el) continue;
-    const player = defLineup[pos - 1];
+    const posAbbr = posMap[pos];
+    const player = defLineup.find(p => p && p.pos === posAbbr);
     if (player && player.name) {
       const lastName = player.name.split(' ').pop();
       el.textContent = lastName;
+    } else {
+      el.textContent = '';
     }
   }
   document.getElementById('sgHitToPanel').classList.add('open');
@@ -3449,8 +3549,9 @@ function sgPickFielder(pos) {
     const posMap = {1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF'};
     const defTeam = G.currentHalf === 'top' ? 'home' : 'away';
     const defLineup = defTeam === 'home' ? G.homeLineup : G.awayLineup;
-    const player = defLineup[pos - 1];
-    fielderLabel = posMap[pos] + (player && player.name ? ' (' + player.name.split(' ').pop() + ')' : '');
+    const posAbbr = posMap[pos];
+    const player = defLineup.find(p => p && p.pos === posAbbr);
+    fielderLabel = posAbbr + (player && player.name ? ' (' + player.name.split(' ').pop() + ')' : '');
   }
   document.getElementById('sgWhatHappenedSub').textContent = 'Hit to ' + fielderLabel + ' — what happened?';
   document.getElementById('sgWhatHappenedPanel').classList.add('open');
