@@ -382,11 +382,11 @@ select.form-input{appearance:none;}
 
   <!-- Active Pitcher Banner -->
   <div id="activePitcherBanner" style="background:linear-gradient(135deg,#0e2347,#162d55);border-bottom:1px solid var(--border2);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-    <div style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;min-width:0;" onclick="openChangePitcherModal()">
+    <div style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;min-width:0;" onclick="showTab('lineup')">
       <div style="font-size:16px;flex-shrink:0;">⚾</div>
       <div style="min-width:0;">
-        <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:700;">Now Pitching <span style="color:var(--accent);">· tap to change</span></div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--white);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="activePitcherName">— Select Pitcher —</div>
+        <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:700;">Now Pitching <span style="color:var(--accent);">· change in lineup</span></div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--white);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="activePitcherName">— Assign P in Lineup —</div>
       </div>
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0;">
@@ -2146,25 +2146,15 @@ function setPlayerPosition(pos) {
     });
   }
   player.pos = pos;
-  // If they were assigned P, sync them into the pitcher list immediately
-  if (pos === 'P') {
-    ensurePitchers();
-    // Auto-set as active pitcher if their team doesn't already have one picked.
-    // Key format: "home-N" or "away-N" where N is their index in the pitcher list.
-    const pitchers = team === 'home' ? G.homePitchers : G.awayPitchers;
-    const pIdx = pitchers.findIndex(p => p.name === player.name && (p.num || '') === (player.num || ''));
-    const currentKey = G.activePitcherKey || '';
-    const teamAlreadyHasActive = currentKey.startsWith(team + '-');
-    if (pIdx >= 0 && !teamAlreadyHasActive) {
-      G.activePitcherKey = team + '-' + pIdx;
-      if (typeof renderActivePitcherBanner === 'function') renderActivePitcherBanner();
-    }
-  }
+  // If they were assigned P, sync them into the pitcher list immediately.
+  // The active pitcher is now DERIVED from lineup pos='P', so no key to set.
+  if (pos === 'P') ensurePitchers();
   persist();
   closeModal('positionPickerModal');
   renderLineupPage();
   renderScorecard();
   if (typeof sgUpdatePositionLabels === 'function') sgUpdatePositionLabels();
+  if (typeof renderActivePitcherBanner === 'function') renderActivePitcherBanner();
   showToast(pos ? player.name + ' → ' + pos : player.name + ' position cleared');
 }
 
@@ -2852,24 +2842,23 @@ function renderActivePitcherBanner() {
   const countBtn = document.getElementById('quickCountBtn');
   if (!nameEl) return;
 
-  if (!G.activePitcherKey) {
-    nameEl.textContent = '— Select Pitcher —';
+  const active = getActivePitcherFromLineup();
+  if (!active) {
+    nameEl.textContent = '— Assign P in Lineup —';
     nameEl.style.color = 'var(--gray)';
     if (countBtn) countBtn.style.display = 'none';
     return;
   }
-  const p = getPitcherByKey(G.activePitcherKey);
-  if (p) {
-    nameEl.textContent = p.name + (p.num ? ' #' + p.num : '');
-    nameEl.style.color = 'var(--white)';
-    if (countBtn) countBtn.style.display = 'block';
-  }
+  const p = active.pitcher;
+  nameEl.textContent = p.name + (p.num ? ' #' + p.num : '');
+  nameEl.style.color = 'var(--white)';
+  if (countBtn) countBtn.style.display = 'block';
 }
 
 function quickOpenPitchCounter() {
-  if (!G.activePitcherKey) { showToast('Select a pitcher first'); return; }
-  const [team, idx] = G.activePitcherKey.split('-');
-  openPitchCounter(team, parseInt(idx));
+  const active = getActivePitcherFromLineup();
+  if (!active) { showToast('Assign a pitcher (P) in the Lineup first'); return; }
+  openPitchCounter(active.team, active.idx);
 }
 
 function getPitcherByKey(key) {
@@ -2877,6 +2866,30 @@ function getPitcherByKey(key) {
   const [team, idx] = key.split('-');
   const list = team === 'home' ? G.homePitchers : G.awayPitchers;
   return list ? list[parseInt(idx)] : null;
+}
+
+// NEW: derive active pitcher from the defensive team's lineup (pos='P').
+// Returns { pitcher, team, idx, player } or null if no pitcher assigned.
+// The pitcher stats object is found by name+num match; if missing, auto-created.
+function getActivePitcherFromLineup() {
+  // Top of inning = away bats, home fields. Bottom = home bats, away fields.
+  const defTeam = G.currentHalf === 'top' ? 'home' : 'away';
+  const defLineup = defTeam === 'home' ? G.homeLineup : G.awayLineup;
+  if (!defLineup) return null;
+  const player = defLineup.find(p => p && p.pos === 'P');
+  if (!player) return null;
+
+  // Make sure a stats record exists (creates if needed via ensurePitchers)
+  ensurePitchers();
+
+  const list = defTeam === 'home' ? G.homePitchers : G.awayPitchers;
+  let idx = list.findIndex(p => p.name === player.name && (p.num || '') === (player.num || ''));
+  if (idx < 0) {
+    // Shouldn't happen after ensurePitchers, but just in case
+    list.push({ name: player.name, num: player.num || '', balls:0, strikes:0, hits:0, walks:0, ks:0, runs:0, outs:0 });
+    idx = list.length - 1;
+  }
+  return { pitcher: list[idx], team: defTeam, idx, player };
 }
 
 function openChangePitcherModal() {
@@ -2938,9 +2951,9 @@ function clearActivePitcher() {
 
 // Auto-update pitcher stats from a committed play
 function updateActivePitcherFromPlay(result, outSeq, rbi, scored) {
-  if (!G.activePitcherKey) return;
-  const p = getPitcherByKey(G.activePitcherKey);
-  if (!p) return;
+  const active = getActivePitcherFromLineup();
+  if (!active) return;
+  const p = active.pitcher;
 
   // Hits
   if (HITS.includes(result)) { p.hits++; }
