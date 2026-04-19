@@ -1056,15 +1056,15 @@ select.form-input{appearance:none;}
       <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.08em;text-transform:uppercase;text-shadow:0 1px 3px rgba(0,0,0,.8);">On Deck</div>
     </div>
 
-    <!-- Runner event buttons (corners) — positioned below floating HUD -->
-    <div style="position:absolute;top:70px;left:8px;display:flex;flex-direction:column;gap:5px;">
-      <button onclick="sgRunnerEvent('SB')" style="background:rgba(0,0,0,.6);border:1px solid rgba(245,166,35,.5);border-radius:7px;padding:4px 9px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;color:var(--accent);cursor:pointer;">SB</button>
-      <button onclick="sgRunnerEvent('CS')" style="background:rgba(0,0,0,.6);border:1px solid rgba(229,57,53,.5);border-radius:7px;padding:4px 9px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;color:var(--red);cursor:pointer;">CS</button>
+    <!-- Runner event buttons (corners) — positioned flush under scoreboard, horizontal rows -->
+    <div style="position:absolute;top:6px;left:6px;display:flex;gap:6px;">
+      <button onclick="sgRunnerEvent('SB')" style="background:rgba(0,0,0,.72);border:1.5px solid rgba(245,166,35,.55);border-radius:8px;padding:7px 13px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--accent);cursor:pointer;letter-spacing:.04em;">SB</button>
+      <button onclick="sgRunnerEvent('CS')" style="background:rgba(0,0,0,.72);border:1.5px solid rgba(229,57,53,.55);border-radius:8px;padding:7px 13px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:var(--red);cursor:pointer;letter-spacing:.04em;">CS</button>
     </div>
-    <div style="position:absolute;top:70px;right:8px;display:flex;flex-direction:column;gap:5px;">
-      <button onclick="sgRunnerEvent('WP')" style="background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:4px 9px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;color:rgba(255,255,255,.7);cursor:pointer;">WP</button>
-      <button onclick="sgRunnerEvent('PB')" style="background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:4px 9px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;color:rgba(255,255,255,.7);cursor:pointer;">PB</button>
-      <button onclick="sgRunnerEvent('BK')" style="background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:4px 9px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;color:rgba(255,255,255,.7);cursor:pointer;">BK</button>
+    <div style="position:absolute;top:6px;right:6px;display:flex;gap:6px;">
+      <button onclick="sgRunnerEvent('WP')" style="background:rgba(0,0,0,.72);border:1.5px solid rgba(255,255,255,.28);border-radius:8px;padding:7px 13px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:rgba(255,255,255,.85);cursor:pointer;letter-spacing:.04em;">WP</button>
+      <button onclick="sgRunnerEvent('PB')" style="background:rgba(0,0,0,.72);border:1.5px solid rgba(255,255,255,.28);border-radius:8px;padding:7px 13px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:rgba(255,255,255,.85);cursor:pointer;letter-spacing:.04em;">PB</button>
+      <button onclick="sgRunnerEvent('BK')" style="background:rgba(0,0,0,.72);border:1.5px solid rgba(255,255,255,.28);border-radius:8px;padding:7px 13px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;color:rgba(255,255,255,.85);cursor:pointer;letter-spacing:.04em;">BK</button>
     </div>
 
     <!-- Skip to result -->
