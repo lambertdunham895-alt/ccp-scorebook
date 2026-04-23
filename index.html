@@ -42,10 +42,19 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 /* ── Nav ── */
 .nav-tabs{display:flex;background:var(--navy2);border-bottom:1px solid var(--border);position:relative;}
 .nav-tabs::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--border2),transparent);}
-.tab{flex:1;padding:10px 3px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);cursor:pointer;border-bottom:3px solid transparent;transition:color .2s,border-color .2s;position:relative;}
+.tab{flex:1;padding:10px 3px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray);cursor:pointer;border-bottom:2px solid transparent;transition:color .22s ease, border-color .22s ease, background .18s ease;position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.tab:active{background:rgba(255,255,255,0.03);}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
-.tab.active::before{content:'';position:absolute;bottom:-1px;left:25%;right:25%;height:3px;background:var(--accent);filter:blur(4px);}
-.tab-icon{font-size:15px;display:block;margin-bottom:2px;}
+.tab.active .tab-icon{color:var(--accent);}
+.tab-icon{display:flex;align-items:center;justify-content:center;width:18px;height:18px;color:var(--gray);transition:color .22s ease, transform .2s ease;}
+.tab-icon svg{width:18px;height:18px;stroke-width:2;display:block;}
+.tab:active .tab-icon{transform:scale(0.92);}
+
+/* Universal tap feedback for primary buttons */
+.btn:active,.result-btn:active,.num-btn:active,.base-btn:active,
+.sg-pitch-btn:active,.sg-bip-btn:active,.sg-skip-btn:active,
+.sg-runner-btn:active,.sg-out-btn:active,.sg-hitto-btn:active,
+.sg-whap-btn:active,.pill-btn:active{transform:scale(0.96);transition:transform .08s ease;}
 
 /* ── Pages ── */
 .page{display:none;animation:fadeIn .18s ease;}
@@ -186,8 +195,8 @@ select.form-input{appearance:none;}
 .section-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;}
 
 /* Toast */
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(90px);background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--navy);font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;padding:10px 20px;border-radius:10px;z-index:600;transition:transform .3s cubic-bezier(.32,.72,0,1);white-space:nowrap;max-width:88vw;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 20px rgba(245,166,35,.4);letter-spacing:.04em;text-transform:uppercase;}
-.toast.show{transform:translateX(-50%) translateY(0);}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(90px) scale(0.92);background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--navy);font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;padding:10px 20px;border-radius:10px;z-index:600;transition:transform .32s cubic-bezier(.32,.72,0,1), opacity .25s ease;white-space:nowrap;max-width:88vw;overflow:hidden;text-overflow:ellipsis;box-shadow:0 6px 24px rgba(245,166,35,.5), 0 2px 8px rgba(0,0,0,.3);letter-spacing:.04em;text-transform:uppercase;opacity:0;}
+.toast.show{transform:translateX(-50%) translateY(0) scale(1);opacity:1;}
 
 /* Divider */
 .divider{height:1px;background:linear-gradient(90deg,transparent,var(--border2),transparent);margin:10px 0;}
@@ -227,15 +236,20 @@ select.form-input{appearance:none;}
    LIVE SCORING SCREEN
 ══════════════════════════════════════════════ */
 #scoreGameOverlay{position:fixed;inset:0;z-index:500;background:var(--navy);display:none;flex-direction:column;overflow:hidden;}
-#scoreGameOverlay.active{display:flex;}
+#scoreGameOverlay.active{display:flex;animation:sg-overlay-in .22s ease-out;}
+@keyframes sg-overlay-in{from{opacity:0;}to{opacity:1;}}
 
 /* LED scoreboard cells — black inset with yellow-orange digits */
-.sg-led-cell{background:#000;border:1px solid rgba(245,166,35,0.22);border-radius:4px;height:32px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:#f5a623;text-shadow:0 0 8px rgba(245,166,35,0.6);letter-spacing:.02em;}
+.sg-led-cell{background:#000;border:1px solid rgba(245,166,35,0.22);border-radius:4px;height:32px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:#f5a623;text-shadow:0 0 8px rgba(245,166,35,0.6);letter-spacing:.02em;box-shadow:inset 0 1px 3px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(245,166,35,0.05);transition:color .25s ease, text-shadow .25s ease;}
 .sg-led-cell.sg-led-R{color:#ffc24a;text-shadow:0 0 10px rgba(255,194,74,0.75);border-color:rgba(255,194,74,0.4);}
 .sg-led-cell:empty::before{content:'·';color:rgba(245,166,35,0.25);text-shadow:none;font-size:18px;}
 
+/* Current inning header pulse */
+@keyframes inn-pulse{0%,100%{text-shadow:0 0 6px rgba(245,166,35,0.5);opacity:1;}50%{text-shadow:0 0 12px rgba(245,166,35,0.9);opacity:.85;}}
+.sg-inn-current{animation:inn-pulse 2.4s ease-in-out infinite;}
+
 /* BSO indicator dots: lit = bright color, unlit = dark outline */
-.sg-bso-dot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);}
+.sg-bso-dot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);transition:background .18s ease, box-shadow .18s ease, border-color .18s ease;}
 .sg-bso-dot.lit.sg-bso-ball{background:#00c853;border-color:#00c853;box-shadow:0 0 8px rgba(0,200,83,0.7);}
 .sg-bso-dot.lit.sg-bso-strike{background:#f5a623;border-color:#f5a623;box-shadow:0 0 8px rgba(245,166,35,0.7);}
 .sg-bso-dot.lit.sg-bso-out{background:#e53935;border-color:#e53935;box-shadow:0 0 8px rgba(229,57,53,0.7);}
@@ -383,13 +397,13 @@ select.form-input{appearance:none;}
 
 <!-- Nav -->
 <div class="nav-tabs">
-  <div class="tab active" onclick="showTab('scorecard')" id="tab-scorecard"><span class="tab-icon">📋</span>Scorecard</div>
-  <div class="tab" onclick="showTab('log')" id="tab-log"><span class="tab-icon">📝</span>Play Log</div>
-  <div class="tab" onclick="showTab('stats')" id="tab-stats"><span class="tab-icon">📊</span>Stats</div>
-  <div class="tab" onclick="showTab('pitching')" id="tab-pitching"><span class="tab-icon">⚾</span>Pitching</div>
-  <div class="tab" onclick="showTab('lineup')" id="tab-lineup"><span class="tab-icon">👤</span>Lineup</div>
-  <div class="tab" onclick="showTab('history')" id="tab-history"><span class="tab-icon">🗂</span>History</div>
-  <div class="tab" onclick="showTab('guide')" id="tab-guide"><span class="tab-icon">📖</span>Guide</div>
+  <div class="tab active" onclick="showTab('scorecard')" id="tab-scorecard"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M7 14h4M7 18h4"/></svg></span>Scorecard</div>
+  <div class="tab" onclick="showTab('log')" id="tab-log"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12l4 4v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M14 4v5h5"/><path d="M7 13h8M7 17h5"/></svg></span>Play Log</div>
+  <div class="tab" onclick="showTab('stats')" id="tab-stats"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V11M9 21V3M15 21v-7M21 21V9"/></svg></span>Stats</div>
+  <div class="tab" onclick="showTab('pitching')" id="tab-pitching"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M6 7c2.5 2 3 8 0 10M18 7c-2.5 2-3 8 0 10"/></svg></span>Pitching</div>
+  <div class="tab" onclick="showTab('lineup')" id="tab-lineup"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg></span>Lineup</div>
+  <div class="tab" onclick="showTab('history')" id="tab-history"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>History</div>
+  <div class="tab" onclick="showTab('guide')" id="tab-guide"><span class="tab-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4a2 2 0 0 1 2-2h13v18H6a2 2 0 0 0-2 2z"/><path d="M4 20V4"/></svg></span>Guide</div>
 </div>
 
 <!-- ═══════════════════ SCORECARD PAGE ═══════════════════ -->
@@ -3498,13 +3512,15 @@ function sgRender() {
       const headEl = document.getElementById('sgInnHead' + (i+1));
       if (headEl) {
         headEl.textContent = innsToShow[i];
-        // Highlight current inning header
+        // Highlight current inning header + apply pulse animation
         if (innsToShow[i] === curInn) {
           headEl.style.color = 'var(--accent)';
           headEl.style.fontWeight = '800';
+          headEl.classList.add('sg-inn-current');
         } else {
           headEl.style.color = 'var(--gray)';
           headEl.style.fontWeight = '700';
+          headEl.classList.remove('sg-inn-current');
         }
       }
     }
