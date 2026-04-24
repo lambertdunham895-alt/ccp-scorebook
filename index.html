@@ -239,9 +239,36 @@ select.form-input{appearance:none;}
 #scoreGameOverlay.active{display:flex;animation:sg-overlay-in .22s ease-out;}
 @keyframes sg-overlay-in{from{opacity:0;}to{opacity:1;}}
 
+/* ══════ 3D SCOREBOARD — faux-physical housing ══════ */
+/* The scoreboard housing: gradient navy + top highlight + deep drop shadow */
+.sg-scoreboard-3d{
+  background:linear-gradient(180deg,#14305e 0%,#0e2347 45%,#0b1525 100%);
+  border-top:1px solid rgba(255,255,255,0.15);
+  border-bottom:1px solid rgba(0,0,0,0.5);
+  padding:12px 14px 10px;
+  flex-shrink:0;
+  position:relative;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),           /* top highlight */
+    inset 0 -1px 0 rgba(0,0,0,0.4),                 /* bottom recessed line */
+    0 4px 0 #060d1a,                                /* bottom thickness */
+    0 8px 24px rgba(0,0,0,0.65),                    /* main cast shadow */
+    0 2px 6px rgba(0,0,0,0.4);                      /* close shadow */
+}
+/* Subtle vignette on the scoreboard for extra depth */
+.sg-scoreboard-3d::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:radial-gradient(ellipse at center top, transparent 0%, rgba(0,0,0,0.15) 100%);
+  pointer-events:none;
+  border-radius:inherit;
+}
+.sg-scoreboard-3d > *{position:relative;z-index:1;}
+
 /* LED scoreboard cells — black inset with yellow-orange digits */
-.sg-led-cell{background:#000;border:1px solid rgba(245,166,35,0.22);border-radius:4px;height:32px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:#f5a623;text-shadow:0 0 8px rgba(245,166,35,0.6);letter-spacing:.02em;box-shadow:inset 0 1px 3px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(245,166,35,0.05);transition:color .25s ease, text-shadow .25s ease;}
-.sg-led-cell.sg-led-R{color:#ffc24a;text-shadow:0 0 10px rgba(255,194,74,0.75);border-color:rgba(255,194,74,0.4);}
+.sg-led-cell{background:linear-gradient(180deg,#000 0%,#0a0a0a 100%);border:1px solid rgba(0,0,0,0.9);border-radius:4px;height:32px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:#f5a623;text-shadow:0 0 8px rgba(245,166,35,0.6);letter-spacing:.02em;box-shadow:inset 0 2px 4px rgba(0,0,0,0.9), inset 0 -1px 0 rgba(245,166,35,0.08), 0 1px 0 rgba(255,255,255,0.08);transition:color .25s ease, text-shadow .25s ease;}
+.sg-led-cell.sg-led-R{color:#ffc24a;text-shadow:0 0 10px rgba(255,194,74,0.75);}
 .sg-led-cell:empty::before{content:'·';color:rgba(245,166,35,0.25);text-shadow:none;font-size:18px;}
 
 /* Current inning header pulse */
@@ -918,8 +945,8 @@ select.form-input{appearance:none;}
 <!-- ═══════════════════ SCORE GAME OVERLAY ═══════════════════ -->
 <div id="scoreGameOverlay">
 
-  <!-- ══════ SCOREBOARD — navy frame, LED yellow digits ══════ -->
-  <div style="background:linear-gradient(180deg,#0e2347 0%,#0b1525 100%);border-bottom:1px solid var(--border2);padding:12px 14px 10px;flex-shrink:0;box-shadow:0 2px 14px rgba(0,0,0,.5);">
+  <!-- ══════ SCOREBOARD — navy frame, LED yellow digits, 3D recessed ══════ -->
+  <div class="sg-scoreboard-3d">
 
     <!-- Top row: team/inning/R/H/E grid -->
     <div style="display:grid;grid-template-columns:auto repeat(3,32px) 12px repeat(3,32px);gap:6px;align-items:center;font-family:'Barlow Condensed',sans-serif;">
