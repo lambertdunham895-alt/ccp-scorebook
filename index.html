@@ -1348,7 +1348,7 @@ select.form-input{appearance:none;}
       </div>
     </div>
     <button class="btn btn-primary" style="width:100%;" onclick="sgCommitPlay()">Log Play ✓</button>
-    <button class="btn btn-secondary" style="width:100%;margin-top:8px;" onclick="closeModal('sgFielderModal')">Cancel</button>
+    <button class="btn btn-secondary" style="width:100%;margin-top:8px;" onclick="sgCancelOutcomeFlow()">Cancel</button>
   </div>
 </div>
 
@@ -3473,20 +3473,30 @@ let SG = {
 // Holds a deep clone of game state captured BEFORE the most recent action.
 // null = nothing to undo. Cleared after undo is applied.
 let UNDO_SNAPSHOT = null;
+// Per-tick guard: prevents nested calls within one tap from clobbering each other,
+// but still allows EACH NEW TAP to capture its own fresh snapshot.
+let _undoCapturedThisTick = false;
+// Multi-tap flow lock: when set, snapshot won't be overwritten across taps.
+// Used for the BIP flow (BIP → fielder → outcome spans 3 taps but is one logical play).
+let _undoFlowLocked = false;
 
 // Call this at the START of any function that mutates game state.
-// Captures everything we need to fully rewind one action.
-// GUARDED: If a snapshot already exists from the current tick's entry point,
-// don't overwrite it — nested calls (e.g., sgPitch → sgAutoResult) share the
-// outermost snapshot so undo rewinds to before the user's tap.
-function captureUndoSnapshot(force) {
-  if (UNDO_SNAPSHOT && !force) return;
+// Captures everything we need to fully rewind one user action (one logical play).
+// GUARDED two ways:
+//   1. Per-tick: nested calls in same tick share outermost snapshot
+//   2. Flow lock: multi-tap flows (BIP → fielder → outcome) preserve the original snapshot
+function captureUndoSnapshot() {
+  if (_undoCapturedThisTick) return;
+  if (_undoFlowLocked) { _undoCapturedThisTick = true; setTimeout(function(){ _undoCapturedThisTick = false; }, 0); return; }
   try {
     UNDO_SNAPSHOT = {
       G: JSON.parse(JSON.stringify(G)),
       SG: JSON.parse(JSON.stringify(SG)),
       halfInningOuts: halfInningOuts
     };
+    _undoCapturedThisTick = true;
+    // Reset the per-tick flag after the current call stack unwinds.
+    setTimeout(function(){ _undoCapturedThisTick = false; }, 0);
     sgUpdateUndoButton();
   } catch(e) { UNDO_SNAPSHOT = null; }
 }
@@ -3502,6 +3512,8 @@ function undoLastAction() {
     SG = UNDO_SNAPSHOT.SG;
     halfInningOuts = UNDO_SNAPSHOT.halfInningOuts;
     UNDO_SNAPSHOT = null;
+    _undoCapturedThisTick = false;
+    _undoFlowLocked = false;
     // Close any open outcome panels or modals that might reference stale state
     document.querySelectorAll('.sg-outcome-panel.open').forEach(el => el.classList.remove('open'));
     persist();
@@ -3510,6 +3522,8 @@ function undoLastAction() {
     showToast('Last play undone');
   } catch(e) {
     UNDO_SNAPSHOT = null;
+    _undoCapturedThisTick = false;
+    _undoFlowLocked = false;
     sgUpdateUndoButton();
   }
 }
@@ -3792,6 +3806,8 @@ function sgPitchFromMenu(type) {
 
   // BIP — counts as 1 pitch (a strike, since they swung & contacted)
   if (type === 'bip') {
+    captureUndoSnapshot();
+    _undoFlowLocked = true;
     SG.pitchCount++;
     if (p) p.strikes++;
     sgOpenHitTo();
@@ -3952,6 +3968,10 @@ function sgCloseHitTo() {
     if (p && p.strikes > 0) p.strikes--;
     sgRefreshAll();
   }
+  // BIP flow aborted at Step 1 — release lock and discard the snapshot we captured for it
+  _undoFlowLocked = false;
+  UNDO_SNAPSHOT = null;
+  sgUpdateUndoButton();
 }
 
 // Step 1 → Step 2: fielder picked (0 = no fielder / gap)
@@ -3981,6 +4001,10 @@ function sgCloseWhatHappened() {
     if (p && p.strikes > 0) p.strikes--;
     sgRefreshAll();
   }
+  // BIP flow aborted — release lock and discard the snapshot we captured for it
+  _undoFlowLocked = false;
+  UNDO_SNAPSHOT = null;
+  sgUpdateUndoButton();
 }
 
 function sgBackToHitTo() {
@@ -3990,7 +4014,8 @@ function sgBackToHitTo() {
 
 // Step 2: resolve the BIP into a scorebook result
 function sgResolveBIP(outcome) {
-  captureUndoSnapshot();
+  // captureUndoSnapshot is already held from sgPitchFromMenu('bip')
+  _undoFlowLocked = false;
   document.getElementById('sgWhatHappenedPanel').classList.remove('open');
   const fielders = SG.pendingFielders || [];
   const fielderPos = fielders[0] || 0;
@@ -4220,6 +4245,7 @@ function sgCloseOutcomePicker() {
 
 function sgSelectOutcome(result) {
   captureUndoSnapshot();
+  _undoFlowLocked = true;
   sgCloseOutcomePicker();
 
   // HBP — skip all modals, auto-force-advance runners like a walk
@@ -4320,8 +4346,16 @@ function sgClearFielder() {
   document.getElementById('sgFielderDisplay').textContent = SG.pendingResult + ' · ' + seq;
 }
 
+function sgCancelOutcomeFlow() {
+  closeModal('sgFielderModal');
+  _undoFlowLocked = false;
+  UNDO_SNAPSHOT = null;
+  sgUpdateUndoButton();
+}
+
 function sgCommitPlay() {
-  captureUndoSnapshot();
+  // captureUndoSnapshot was held from sgSelectOutcome — release the flow lock
+  _undoFlowLocked = false;
   const result = SG.pendingResult;
   const scored = document.getElementById('sgScoredCheck').checked;
   const rbi = parseInt(document.getElementById('sgRbiCount').value) || 0;
@@ -4447,6 +4481,10 @@ function sgRunnerEvent(result) {
   if (result === 'SB' || result === 'CS') {
     return sgQuickStealOrCaught(result);
   }
+
+  // WP / PB / BK route → snapshot + lock; commit happens later in sgCommitPlay
+  captureUndoSnapshot();
+  _undoFlowLocked = true;
 
   SG.pendingResult = result;
   SG.pendingFielders = [];
