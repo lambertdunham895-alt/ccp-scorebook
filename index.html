@@ -903,6 +903,17 @@ select.form-input{appearance:none;}
   </div>
 </div>
 
+<!-- ═══════════════════ LOAD SAVED TEAM PICKER MODAL ═══════════════════ -->
+<div class="modal-overlay" id="loadTeamPickerModal">
+  <div class="modal" style="max-height:88vh;">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="loadTeamPickerTitle">Load Saved Team</div>
+    <p style="font-size:12px;color:var(--gray);margin-bottom:12px;">Tap a team to add its roster to this lineup. Players will be appended — your current lineup is kept.</p>
+    <div id="loadTeamPickerList" style="max-height:60vh;overflow-y:auto;margin-bottom:12px;"></div>
+    <button class="btn btn-secondary" style="width:100%;" onclick="closeModal('loadTeamPickerModal')">Cancel</button>
+  </div>
+</div>
+
 <!-- ═══════════════════ DELETE TEAM CONFIRM MODAL ═══════════════════ -->
 <div class="modal-overlay" id="deleteTeamConfirmModal">
   <div class="modal">
@@ -3010,15 +3021,23 @@ function renderLineupPage(){
   wrap.innerHTML='';
   const mkSection=(team,lineup,label)=>{
     const sec=document.createElement('div');
-    // Section header with + Player button
+    // Section header with Load Team + Player buttons
     const hdr=document.createElement('div');
-    hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:10px 0 6px;';
-    hdr.innerHTML=`<div style="font-family:Oswald,sans-serif;font-size:13px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;">${label}</div>`;
+    hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 6px;flex-wrap:wrap;';
+    hdr.innerHTML=`<div style="font-family:Oswald,sans-serif;font-size:13px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;flex:1;min-width:0;">${label}</div>`;
+    const btnWrap=document.createElement('div');
+    btnWrap.style.cssText='display:flex;gap:6px;flex-shrink:0;';
+    const loadBtn=document.createElement('button');
+    loadBtn.className='btn btn-secondary btn-sm';
+    loadBtn.textContent='📋 Load Team';
+    loadBtn.onclick=()=>openLoadTeamPicker(team);
+    btnWrap.appendChild(loadBtn);
     const addBtn=document.createElement('button');
     addBtn.className='btn btn-primary btn-sm';
     addBtn.textContent='+ Player';
     addBtn.onclick=()=>openAddPlayerModal(team);
-    hdr.appendChild(addBtn);
+    btnWrap.appendChild(addBtn);
+    hdr.appendChild(btnWrap);
     sec.appendChild(hdr);
     if(!lineup.length){
       const p=document.createElement('p');p.style.cssText='color:var(--gray);font-size:12px;padding:8px 0;';p.textContent='No players added.';sec.appendChild(p);
@@ -3434,6 +3453,93 @@ function confirmScannedPlayersForTeam() {
   document.getElementById('teamScannedList').style.display = 'none';
   document.getElementById('teamScanStatus').style.display = 'none';
   document.getElementById('teamScannedPlayers').innerHTML = '';
+}
+
+// ══════════════════════════════════════════════
+//  LOAD SAVED TEAM INTO LINEUP (Lineup tab → 📋 Load Team)
+// ══════════════════════════════════════════════
+var _loadTeamPickerSide = 'home'; // which side ('home'|'away') we're loading into
+
+function openLoadTeamPicker(side) {
+  _loadTeamPickerSide = side;
+  var titleEl = document.getElementById('loadTeamPickerTitle');
+  var sideLabel = side === 'home' ? 'Home' : 'Away';
+  if (titleEl) titleEl.textContent = 'Load Saved Team → ' + sideLabel;
+
+  var listEl = document.getElementById('loadTeamPickerList');
+  listEl.innerHTML = '';
+
+  var teams = (G.teams || []).slice();
+  if (!teams.length) {
+    listEl.innerHTML = '<div style="padding:24px 12px;text-align:center;color:var(--gray);font-size:13px;">No saved teams yet.<br><span style="font-size:11px;">Create one from the Teams modal first.</span></div>';
+    openModal('loadTeamPickerModal');
+    return;
+  }
+
+  // Sort: most-recently used first, then alphabetical
+  teams.sort(function(a, b){
+    var au = a.lastUsedAt || a.createdAt || 0;
+    var bu = b.lastUsedAt || b.createdAt || 0;
+    if (bu !== au) return bu - au;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  teams.forEach(function(t){
+    var rosterCount = (t.roster || []).length;
+    var lastUsed = t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleDateString() : 'never used';
+    var myTag = t.isMyTeam ? '<span style="background:rgba(76,175,80,.18);color:var(--green);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;margin-left:6px;">MY TEAM</span>' : '';
+    var row = document.createElement('button');
+    row.className = 'team-load-row';
+    row.style.cssText = 'width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;text-align:left;color:var(--white);';
+    row.innerHTML =
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:800;color:var(--white);">' + escapeHtml(t.name) + myTag + '</div>' +
+        '<div style="font-size:11px;color:var(--gray);margin-top:2px;">' + rosterCount + ' player' + (rosterCount === 1 ? '' : 's') + ' · last used ' + lastUsed + '</div>' +
+      '</div>' +
+      '<div style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;color:var(--accent);flex-shrink:0;">LOAD →</div>';
+    row.addEventListener('click', function(){
+      loadSavedTeamIntoLineup(t.id);
+    });
+    listEl.appendChild(row);
+  });
+
+  openModal('loadTeamPickerModal');
+}
+
+function loadSavedTeamIntoLineup(teamId) {
+  var t = getTeamById(teamId);
+  if (!t) { showToast('Team not found'); return; }
+
+  var roster = (t.roster || []).filter(function(p){ return p && (p.name || p.num); });
+  if (!roster.length) {
+    showToast('That team has no players in its roster yet');
+    closeModal('loadTeamPickerModal');
+    return;
+  }
+
+  var side = _loadTeamPickerSide;
+  var lineup = side === 'home' ? G.homeLineup : G.awayLineup;
+  var cells  = side === 'home' ? G.homeCells  : G.awayCells;
+  var innings = G.totalInnings || 7;
+
+  // Append each roster player + a matching cells row
+  roster.forEach(function(p){
+    lineup.push({
+      name: p.name || 'Player',
+      num: p.num || '',
+      pos: p.pos || ''
+    });
+    cells.push(Array(innings).fill(null));
+  });
+
+  // Mark the team as recently used (helps with sort order next time)
+  touchTeam(t.id);
+
+  closeModal('loadTeamPickerModal');
+  persist();
+  renderAll();
+  var sideLabel = side === 'home' ? G.homeName : G.awayName;
+  showToast(roster.length + ' player' + (roster.length === 1 ? '' : 's') + ' from ' + t.name + ' added to ' + sideLabel);
 }
 
 // ══════════════════════════════════════════════
