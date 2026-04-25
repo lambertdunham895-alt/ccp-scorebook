@@ -407,6 +407,7 @@ select.form-input{appearance:none;}
 .sg-pitch-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;flex-shrink:0;border:1px solid rgba(255,255,255,0.08);}
 .sg-pitch-label{font-size:17px;color:var(--white);font-weight:600;font-family:'Barlow Condensed',sans-serif;letter-spacing:.02em;text-transform:uppercase;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -2042,6 +2043,18 @@ function confirmDeleteTeam() {
 function init(){
   const s=localStorage.getItem('ccp_sc_v1');
   if(s){try{G={...G,...JSON.parse(s)};}catch(e){}}
+  // If launched from CoachConnect Pro, load existing game state
+  if(CCP_EVENT_ID){
+    ccpLoadFromCloud(function(){
+      document.getElementById('setupHome').value=G.homeName;
+      document.getElementById('setupAway').value=G.awayName;
+      document.getElementById('setupInnings').value=G.totalInnings;
+      document.getElementById('setupDate').value=G.gameDate;
+      ensureCells();
+      renderAll();
+    });
+    return;
+  }
   document.getElementById('setupHome').value=G.homeName;
   document.getElementById('setupAway').value=G.awayName;
   document.getElementById('setupInnings').value=G.totalInnings;
@@ -2050,6 +2063,90 @@ function init(){
   renderAll();
 }
 function persist(){localStorage.setItem('ccp_sc_v1',JSON.stringify(G));}
+
+// ══════════════════════════════════════════════
+//  SUPABASE SYNC (for CoachConnect Pro integration)
+// ══════════════════════════════════════════════
+var CCP_SUPABASE = null;
+var CCP_TEAM_ID = null;
+var CCP_EVENT_ID = null;
+var CCP_SAVE_TIMER = null;
+
+function ccpInitSync(){
+  try {
+    var p = new URLSearchParams(window.location.search);
+    CCP_TEAM_ID = p.get('team_id') || null;
+    CCP_EVENT_ID = p.get('event_id') || null;
+    if(!CCP_TEAM_ID || !CCP_EVENT_ID) return false;
+    if(typeof supabase === 'undefined' || !supabase.createClient) return false;
+    CCP_SUPABASE = supabase.createClient(
+      'https://hcadlkmejdekhbgfvyaq.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjYWRsa21lamRla2hiZ2Z2eWFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4OTg1MjIsImV4cCI6MjA4ODQ3NDUyMn0.PlHlQX5b5ts7SnXd7hWfuWi01Y_aK6QnWvzZPVb54Ko'
+    );
+    return true;
+  } catch(e){ return false; }
+}
+
+function ccpComputeScore(){
+  try {
+    var homeR = G.homeCells.reduce(function(t,row){return t + row.filter(function(c){return c && c.scored;}).length + row.reduce(function(s,c){return s + (c && c.rbi ? c.rbi : 0);}, 0);}, 0);
+    var awayR = G.awayCells.reduce(function(t,row){return t + row.filter(function(c){return c && c.scored;}).length + row.reduce(function(s,c){return s + (c && c.rbi ? c.rbi : 0);}, 0);}, 0);
+    return {home:homeR, away:awayR};
+  } catch(e){ return {home:0, away:0}; }
+}
+
+function ccpSaveToCloud(){
+  if(!CCP_SUPABASE || !CCP_TEAM_ID || !CCP_EVENT_ID) return;
+  var s = ccpComputeScore();
+  var row = {
+    id: CCP_EVENT_ID,
+    team_id: CCP_TEAM_ID,
+    event_id: CCP_EVENT_ID,
+    home_team: G.homeName || 'Home',
+    away_team: G.awayName || 'Away',
+    home_score: s.home,
+    away_score: s.away,
+    current_inning: G.currentInning || 1,
+    is_top_inning: G.isTop !== false,
+    outs: G.outs || 0,
+    balls: G.balls || 0,
+    strikes: G.strikes || 0,
+    bases: {first: !!G.first, second: !!G.second, third: !!G.third},
+    game_status: G.gameOver ? 'final' : (G.currentInning > 1 || s.home > 0 || s.away > 0 ? 'in_progress' : 'not_started'),
+    updated_at: new Date().toISOString()
+  };
+  CCP_SUPABASE.from('game_scores').upsert(row, {onConflict:'event_id'}).then(function(){}, function(){});
+}
+
+function ccpQueueSave(){
+  if(CCP_SAVE_TIMER) clearTimeout(CCP_SAVE_TIMER);
+  CCP_SAVE_TIMER = setTimeout(ccpSaveToCloud, 800);
+}
+
+function ccpLoadFromCloud(cb){
+  if(!CCP_SUPABASE || !CCP_EVENT_ID) { if(cb) cb(); return; }
+  CCP_SUPABASE.from('game_scores').select('*').eq('event_id', CCP_EVENT_ID).maybeSingle().then(function(res){
+    if(res && res.data){
+      // Restore basic state from cloud (for resuming a game)
+      var d = res.data;
+      if(d.home_team) G.homeName = d.home_team;
+      if(d.away_team) G.awayName = d.away_team;
+      if(typeof d.current_inning === 'number') G.currentInning = d.current_inning;
+      if(typeof d.is_top_inning === 'boolean') G.isTop = d.is_top_inning;
+      if(typeof d.outs === 'number') G.outs = d.outs;
+    }
+    if(cb) cb();
+  }, function(){ if(cb) cb(); });
+}
+
+// Hook persist() to also save to Supabase
+var _origPersist = persist;
+persist = function(){
+  _origPersist();
+  ccpQueueSave();
+};
+
+ccpInitSync();
 
 function ensureCells(){
   const n=G.totalInnings;
