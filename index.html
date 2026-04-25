@@ -477,6 +477,11 @@ select.form-input{appearance:none;}
       <button id="statsHomeBtn" class="btn btn-secondary" style="flex:1;border:2px solid var(--accent);color:var(--accent);" onclick="showStatsTeam('home')">▲ Home</button>
       <button id="statsAwayBtn" class="btn btn-secondary" style="flex:1;" onclick="showStatsTeam('away')">▼ Away</button>
     </div>
+    <!-- Batting / Pitching toggle -->
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button id="statsBattingBtn" class="btn btn-sm btn-secondary" style="flex:1;border:2px solid var(--accent);color:var(--accent);" onclick="showStatsView('batting')">🏏 Batting</button>
+      <button id="statsPitchingBtn" class="btn btn-sm btn-secondary" style="flex:1;" onclick="showStatsView('pitching')">⚾ Pitching</button>
+    </div>
     <!-- Game / Season toggle -->
     <div style="display:flex;gap:8px;margin-bottom:14px;">
       <button id="statsGameBtn" class="btn btn-sm btn-secondary" style="flex:1;border:2px solid var(--accent);color:var(--accent);" onclick="showStatsPeriod('game')">This Game</button>
@@ -2577,6 +2582,7 @@ function confirmScannedPlayers() {
 // ══════════════════════════════════════════════
 let statsTeam = 'home';
 let statsPeriod = 'game';
+let statsView = 'batting';  // 'batting' | 'pitching'
 
 function showStatsTeam(team) {
   statsTeam = team;
@@ -2586,6 +2592,17 @@ function showStatsTeam(team) {
   hb.style.color       = team==='home' ? 'var(--accent)' : 'var(--white)';
   ab.style.borderColor = team==='away' ? 'var(--accent)' : 'var(--border)';
   ab.style.color       = team==='away' ? 'var(--accent)' : 'var(--white)';
+  renderStatsTable();
+}
+
+function showStatsView(view) {
+  statsView = view;
+  const bb = document.getElementById('statsBattingBtn');
+  const pb = document.getElementById('statsPitchingBtn');
+  bb.style.borderColor = view==='batting' ? 'var(--accent)' : 'var(--border)';
+  bb.style.color       = view==='batting' ? 'var(--accent)' : 'var(--white)';
+  pb.style.borderColor = view==='pitching' ? 'var(--accent)' : 'var(--border)';
+  pb.style.color       = view==='pitching' ? 'var(--accent)' : 'var(--white)';
   renderStatsTable();
 }
 
@@ -2660,6 +2677,11 @@ function calcSeasonStats(team, playerName) {
 }
 
 function renderStatsTable() {
+  // Branch: if Pitching view selected, render pitching table instead
+  if (statsView === 'pitching') {
+    renderPitchingStatsTable();
+    return;
+  }
   const tbl = document.getElementById('statsTable');
   if (!tbl) return;
   tbl.innerHTML = '';
@@ -2737,6 +2759,210 @@ function renderStatsTable() {
     td.textContent = (v===0&&i>1&&i<11)?'—':v;
     trow.appendChild(td);
   });
+}
+
+// ── Pitching Stats Helpers ──
+// Convert outs (integer) → IP display string like "5.2" (5 and 2/3 innings)
+function ipDisplay(outs) {
+  outs = outs || 0;
+  const full = Math.floor(outs / 3);
+  const rem = outs % 3;
+  return full + '.' + rem;
+}
+// Convert outs → decimal innings for ERA/WHIP math (3 outs = 1.0)
+function ipDecimal(outs) {
+  return (outs || 0) / 3;
+}
+// Build a per-game pitching stat object from a saved pitcher record.
+// Returns: { g, outs, ip, h, r, er, bb, k, pc, era, whip }
+function calcPitchingFromRecord(p, gameCount) {
+  if (!p) return null;
+  const outs = p.outs || 0;
+  const h = p.hits || 0;
+  const r = p.runs || 0;
+  // Earned runs not tracked separately — treat all as earned (standard youth simplification)
+  const er = r;
+  const bb = p.walks || 0;
+  const k = p.ks || 0;
+  const pc = (p.balls || 0) + (p.strikes || 0);
+  const ipDec = ipDecimal(outs);
+  // ERA formula: (ER × game_innings) / IP. Youth standard = 7-inning game.
+  const era = ipDec > 0 ? ((er * 7) / ipDec) : 0;
+  // WHIP = (BB + H) / IP
+  const whip = ipDec > 0 ? ((bb + h) / ipDec) : 0;
+  return {
+    g: gameCount || 1,
+    outs, ip: ipDisplay(outs),
+    h, r, er, bb, k, pc,
+    era: era.toFixed(2),
+    whip: whip.toFixed(2)
+  };
+}
+
+// Aggregate a pitcher's stats across all saved games for the season.
+// Matches by name + jersey number. Includes the in-progress game's stats too.
+function calcPitchingSeasonForPitcher(team, name, num) {
+  const totals = { outs:0, hits:0, runs:0, walks:0, ks:0, balls:0, strikes:0, games:0 };
+  const matchKey = (p) => p.name === name && (p.num || '') === (num || '');
+
+  // 1) In-progress game
+  const livePitchers = team==='home' ? G.homePitchers : G.awayPitchers;
+  if (livePitchers) {
+    const live = livePitchers.find(matchKey);
+    if (live && (live.balls + live.strikes > 0 || live.outs > 0)) {
+      totals.outs += (live.outs||0);
+      totals.hits += (live.hits||0);
+      totals.runs += (live.runs||0);
+      totals.walks += (live.walks||0);
+      totals.ks += (live.ks||0);
+      totals.balls += (live.balls||0);
+      totals.strikes += (live.strikes||0);
+      totals.games += 1;
+    }
+  }
+
+  // 2) Saved games — but only games where THIS team's name matches, so we
+  //    don't accidentally match a pitcher with the same name on another team
+  const teamName = team==='home' ? G.homeName : G.awayName;
+  if (G.savedGames) {
+    G.savedGames.forEach(gm => {
+      // Find this team's pitcher list in the saved game by team name
+      let savedList = null;
+      if (gm.homeName === teamName) savedList = gm.homePitchers;
+      else if (gm.awayName === teamName) savedList = gm.awayPitchers;
+      if (!savedList) return;
+      const sp = savedList.find(matchKey);
+      if (sp && (sp.balls + sp.strikes > 0 || sp.outs > 0)) {
+        totals.outs += (sp.outs||0);
+        totals.hits += (sp.hits||0);
+        totals.runs += (sp.runs||0);
+        totals.walks += (sp.walks||0);
+        totals.ks += (sp.ks||0);
+        totals.balls += (sp.balls||0);
+        totals.strikes += (sp.strikes||0);
+        totals.games += 1;
+      }
+    });
+  }
+  // Wrap into the same shape as calcPitchingFromRecord output
+  return calcPitchingFromRecord({
+    outs: totals.outs, hits: totals.hits, runs: totals.runs,
+    walks: totals.walks, ks: totals.ks,
+    balls: totals.balls, strikes: totals.strikes
+  }, totals.games);
+}
+
+// Get the list of pitchers to show in the table
+function getPitcherListForStats() {
+  const livePitchers = (statsTeam==='home' ? G.homePitchers : G.awayPitchers) || [];
+
+  if (statsPeriod === 'game') {
+    // Just this game's pitchers — anyone with at least 1 pitch or 1 out
+    return livePitchers
+      .filter(p => (p.balls + p.strikes) > 0 || (p.outs||0) > 0)
+      .map(p => ({ name: p.name, num: p.num, record: p }));
+  }
+
+  // Season: union of live pitchers + every pitcher across all saved games for this team
+  const seen = new Map();  // key: name|num → {name, num}
+  livePitchers.forEach(p => {
+    if ((p.balls + p.strikes) > 0 || (p.outs||0) > 0) {
+      seen.set(p.name + '|' + (p.num||''), { name: p.name, num: p.num });
+    }
+  });
+  const teamName = statsTeam==='home' ? G.homeName : G.awayName;
+  if (G.savedGames) {
+    G.savedGames.forEach(gm => {
+      let savedList = null;
+      if (gm.homeName === teamName) savedList = gm.homePitchers;
+      else if (gm.awayName === teamName) savedList = gm.awayPitchers;
+      if (!savedList) return;
+      savedList.forEach(sp => {
+        if ((sp.balls + sp.strikes) > 0 || (sp.outs||0) > 0) {
+          seen.set(sp.name + '|' + (sp.num||''), { name: sp.name, num: sp.num });
+        }
+      });
+    });
+  }
+  return Array.from(seen.values()).map(p => ({ name: p.name, num: p.num }));
+}
+
+// Render the pitching stats table
+function renderPitchingStatsTable() {
+  const tbl = document.getElementById('statsTable');
+  if (!tbl) return;
+  tbl.innerHTML = '';
+  const teamName = statsTeam==='home' ? G.homeName : G.awayName;
+  const pitchers = getPitcherListForStats();
+
+  if (!pitchers.length) {
+    const msg = statsPeriod === 'game'
+      ? 'No pitchers have thrown in this game yet.'
+      : 'No saved pitching stats for ' + teamName + ' yet.';
+    tbl.innerHTML = '<tr><td style="padding:32px;text-align:center;color:var(--gray);font-size:13px;">' + msg + '</td></tr>';
+    return;
+  }
+
+  // Header columns
+  const cols = ['#','Pitcher','G','IP','H','R','ER','BB','K','PC','ERA','WHIP'];
+  const hdr = tbl.insertRow();
+  cols.forEach(c => {
+    const th = document.createElement('th');
+    th.style.cssText = 'background:var(--blue);padding:5px 6px;font-family:Oswald,sans-serif;font-size:10px;font-weight:600;color:var(--accent);text-align:center;white-space:nowrap;border:1px solid rgba(255,255,255,.1);';
+    th.textContent = c;
+    hdr.appendChild(th);
+  });
+
+  // Pitcher rows
+  pitchers.forEach(p => {
+    let s;
+    if (statsPeriod === 'game') {
+      s = calcPitchingFromRecord(p.record, 1);
+    } else {
+      s = calcPitchingSeasonForPitcher(statsTeam, p.name, p.num);
+    }
+    if (!s) return;
+
+    const row = tbl.insertRow();
+    const eraVal = parseFloat(s.era);
+    const vals = [
+      p.num || '—', p.name,
+      s.g, s.ip, s.h, s.r, s.er, s.bb, s.k, s.pc, s.era, s.whip
+    ];
+    vals.forEach((v, i) => {
+      const td = document.createElement('td');
+      td.style.cssText = 'padding:7px 6px;text-align:center;border:1px solid rgba(255,255,255,.06);white-space:nowrap;';
+      // Color highlights
+      if (i === 1) { td.style.textAlign='left'; td.style.color='var(--white)'; td.style.fontFamily='Inter,sans-serif'; td.style.fontWeight='600'; }
+      // Color ERA: green if <3.00, white if <5.00, red otherwise
+      if (i === 10) {
+        td.style.fontWeight='700';
+        if (s.outs === 0) td.style.color = 'var(--gray)';
+        else if (eraVal < 3.00) td.style.color = 'var(--green)';
+        else if (eraVal < 5.00) td.style.color = 'var(--white)';
+        else td.style.color = 'var(--red)';
+      }
+      // Highlight K's
+      if (i === 8 && s.k > 0) td.style.color = 'var(--accent)';
+      // Highlight pitch count (so coaches can spot high totals quickly)
+      if (i === 9 && s.pc >= 60) td.style.color = 'var(--accent)';
+      if (i === 9 && s.pc >= 85) td.style.color = 'var(--red)';
+      // Display "—" for zero values in the middle columns (G, IP, ERA, WHIP show 0/0.00)
+      const showDash = (v === 0 && i > 1 && i < 10);
+      td.textContent = showDash ? '—' : v;
+      row.appendChild(td);
+    });
+  });
+
+  // Footer note about ER limitation
+  if (statsPeriod === 'game' || pitchers.length > 0) {
+    const noteRow = tbl.insertRow();
+    const note = document.createElement('td');
+    note.colSpan = cols.length;
+    note.style.cssText = 'padding:8px 6px;text-align:center;color:var(--gray);font-size:9px;font-family:Inter,sans-serif;font-style:italic;border:none;background:transparent;';
+    note.textContent = 'ERA = (ER × 7) ÷ IP · ER counted same as R · PC red ≥ 85, orange ≥ 60';
+    noteRow.appendChild(note);
+  }
 }
 
 // ── Player Stats Popup ──
