@@ -1000,6 +1000,18 @@ select.form-input{appearance:none;}
       <div class="sg-led-cell" id="sgHomeE">0</div>
     </div>
 
+    <!-- Pitcher / Pitch Count strip -->
+    <div id="sgPitcherStrip" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding:6px 10px;background:#000;border:1px solid rgba(245,166,35,0.22);border-radius:4px;box-shadow:inset 0 2px 4px rgba(0,0,0,0.9), inset 0 -1px 0 rgba(245,166,35,0.08);">
+      <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
+        <span style="font-size:10px;font-weight:800;color:var(--accent);letter-spacing:.1em;font-family:'Barlow Condensed',sans-serif;text-shadow:0 0 6px rgba(245,166,35,0.5);">P</span>
+        <span id="sgPitcherName" style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:#f5a623;text-shadow:0 0 6px rgba(245,166,35,0.45);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <span style="font-size:10px;font-weight:800;color:var(--gray);letter-spacing:.1em;font-family:'Barlow Condensed',sans-serif;">PC</span>
+        <span id="sgPitchCount" style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:#ffc24a;text-shadow:0 0 8px rgba(255,194,74,0.7);letter-spacing:.02em;min-width:28px;text-align:right;">0</span>
+      </div>
+    </div>
+
     <!-- Bottom row: B / S / O + EXIT -->
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.1);">
       <div style="display:flex;align-items:center;gap:7px;">
@@ -3045,7 +3057,7 @@ function getActivePitcherFromLineup() {
   let idx = list.findIndex(p => p.name === player.name && (p.num || '') === (player.num || ''));
   if (idx < 0) {
     // Shouldn't happen after ensurePitchers, but just in case
-    list.push({ name: player.name, num: player.num || '', balls:0, strikes:0, hits:0, walks:0, ks:0, runs:0, outs:0 });
+    list.push({ name: player.name, num: player.num || '', balls:0, strikes:0, hits:0, walks:0, ks:0, runs:0, outs:0, pitchLimit:85 });
     idx = list.length - 1;
   }
   return { pitcher: list[idx], team: defTeam, idx, player };
@@ -3168,7 +3180,8 @@ function syncPitchersFromLineup(team) {
       pitchers.push({
         name: pl.name,
         num: pl.num || '',
-        balls: 0, strikes: 0, hits: 0, walks: 0, ks: 0, runs: 0, outs: 0
+        balls: 0, strikes: 0, hits: 0, walks: 0, ks: 0, runs: 0, outs: 0,
+        pitchLimit: 85
       });
     }
   });
@@ -3190,7 +3203,7 @@ function addPitcher() {
   const name = document.getElementById('ptName').value.trim();
   if (!name) { showToast('Enter a pitcher name'); return; }
   const num = document.getElementById('ptNum').value.trim();
-  const pitcher = { name, num, balls:0, strikes:0, hits:0, walks:0, ks:0, runs:0, outs:0 };
+  const pitcher = { name, num, balls:0, strikes:0, hits:0, walks:0, ks:0, runs:0, outs:0, pitchLimit:85 };
   if (pitchingTeam === 'home') G.homePitchers.push(pitcher);
   else G.awayPitchers.push(pitcher);
   document.getElementById('ptName').value = '';
@@ -3778,6 +3791,19 @@ function sgRender() {
   const pSub = document.getElementById('sgPSub');
   if (pName) pName.textContent = p ? (p.name + (p.num ? ' #'+p.num : '')) : '—';
   if (pSub) pSub.textContent = p ? (p.balls + p.strikes) + ' Pitches' : '0 Pitches';
+
+  // Scoreboard pitcher strip — name + running pitch count for whole game
+  const sbPName = document.getElementById('sgPitcherName');
+  const sbPC = document.getElementById('sgPitchCount');
+  if (sbPName) {
+    if (p) {
+      const lastName = p.name.split(' ').pop().toUpperCase();
+      sbPName.textContent = lastName + (p.num ? ' #' + p.num : '');
+    } else {
+      sbPName.textContent = '—';
+    }
+  }
+  if (sbPC) sbPC.textContent = p ? (p.balls + p.strikes) : 0;
 
   // On deck
   const odEl = document.getElementById('sgOnDeckName');
