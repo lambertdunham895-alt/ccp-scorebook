@@ -3033,10 +3033,30 @@ function quickOpenPitchCounter() {
 }
 
 function getPitcherByKey(key) {
-  if (!key) return null;
-  const [team, idx] = key.split('-');
-  const list = team === 'home' ? G.homePitchers : G.awayPitchers;
-  return list ? list[parseInt(idx)] : null;
+  // Determine which team is currently fielding (and thus pitching)
+  const defTeam = G.currentHalf === 'top' ? 'home' : 'away';
+
+  // If an explicit active pitcher key is set AND it matches the defensive team, use it
+  if (key) {
+    const [team, idx] = key.split('-');
+    if (team === defTeam) {
+      const list = team === 'home' ? G.homePitchers : G.awayPitchers;
+      const found = list ? list[parseInt(idx)] : null;
+      if (found) return found;
+    }
+  }
+  // Otherwise: auto-derive from whoever has pos='P' in the defensive lineup.
+  // This handles two cases:
+  //   1. Coach set lineup but never tapped "Change Pitcher" → no manual key set
+  //   2. Half-inning just flipped → cached key points to wrong team, re-derive
+  try {
+    const auto = getActivePitcherFromLineup();
+    if (auto && auto.pitcher) {
+      G.activePitcherKey = auto.team + '-' + auto.idx;
+      return auto.pitcher;
+    }
+  } catch(e) {}
+  return null;
 }
 
 // NEW: derive active pitcher from the defensive team's lineup (pos='P').
