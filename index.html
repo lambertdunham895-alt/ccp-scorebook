@@ -914,6 +914,21 @@ select.form-input{appearance:none;}
   </div>
 </div>
 
+<!-- ═══════════════════ CLEAR SIDE CONFIRM MODAL ═══════════════════ -->
+<div class="modal-overlay" id="clearSideConfirmModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" style="color:var(--red);" id="clearSideConfirmTitle">Clear This Side?</div>
+    <p style="font-size:14px;color:var(--white);margin-bottom:6px;">This will remove from <strong id="clearSideLabel">this side</strong>:</p>
+    <div id="clearSideSummary" style="font-size:13px;color:var(--gray);background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:14px;line-height:1.6;"></div>
+    <p style="font-size:12px;color:var(--gray);margin-bottom:18px;">The other side, saved games, your team library, and the play log are not affected. This cannot be undone.</p>
+    <div class="flex-row" style="gap:10px;">
+      <button class="btn btn-danger" style="flex:1;" onclick="confirmClearSide()">Yes, Clear</button>
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('clearSideConfirmModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════ DELETE TEAM CONFIRM MODAL ═══════════════════ -->
 <div class="modal-overlay" id="deleteTeamConfirmModal">
   <div class="modal">
@@ -3027,6 +3042,11 @@ function renderLineupPage(){
     hdr.innerHTML=`<div style="font-family:Oswald,sans-serif;font-size:13px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;flex:1;min-width:0;">${label}</div>`;
     const btnWrap=document.createElement('div');
     btnWrap.style.cssText='display:flex;gap:6px;flex-shrink:0;';
+    const clearBtn=document.createElement('button');
+    clearBtn.className='btn btn-danger btn-sm';
+    clearBtn.textContent='🗑 Clear';
+    clearBtn.onclick=()=>openClearSideConfirm(team);
+    btnWrap.appendChild(clearBtn);
     const loadBtn=document.createElement('button');
     loadBtn.className='btn btn-secondary btn-sm';
     loadBtn.textContent='📋 Load Team';
@@ -3540,6 +3560,66 @@ function loadSavedTeamIntoLineup(teamId) {
   renderAll();
   var sideLabel = side === 'home' ? G.homeName : G.awayName;
   showToast(roster.length + ' player' + (roster.length === 1 ? '' : 's') + ' from ' + t.name + ' added to ' + sideLabel);
+}
+
+// ══════════════════════════════════════════════
+//  CLEAR SIDE (Lineup tab → 🗑 Clear)
+// ══════════════════════════════════════════════
+var _clearSideTarget = 'home'; // which side ('home'|'away') is being cleared
+
+function openClearSideConfirm(side) {
+  _clearSideTarget = side;
+  var sideLabel = side === 'home' ? 'Home' : 'Away';
+  var teamName = side === 'home' ? G.homeName : G.awayName;
+  var lineup = side === 'home' ? G.homeLineup : G.awayLineup;
+  var pitchers = side === 'home' ? (G.homePitchers || []) : (G.awayPitchers || []);
+
+  document.getElementById('clearSideConfirmTitle').textContent = 'Clear ' + sideLabel + ' Side?';
+  document.getElementById('clearSideLabel').textContent = teamName + ' (' + sideLabel + ')';
+
+  var playerCount = (lineup || []).length;
+  var pitcherCount = pitchers.length;
+  document.getElementById('clearSideSummary').innerHTML =
+    '• ' + playerCount + ' batter' + (playerCount === 1 ? '' : 's') + '<br>' +
+    '• ' + pitcherCount + ' pitcher' + (pitcherCount === 1 ? '' : 's') + '<br>' +
+    '• Scorecard cells for this side<br>' +
+    '• Team name & link will reset to default';
+
+  openModal('clearSideConfirmModal');
+}
+
+function confirmClearSide() {
+  var side = _clearSideTarget;
+
+  if (side === 'home') {
+    G.homeLineup = [];
+    G.homeCells = [];
+    G.homePitchers = [];
+    G.homeBatterIdx = 0;
+    G.homeName = 'Home Team';
+    G.homeTeamId = null;
+  } else {
+    G.awayLineup = [];
+    G.awayCells = [];
+    G.awayPitchers = [];
+    G.awayBatterIdx = 0;
+    G.awayName = 'Away Team';
+    G.awayTeamId = null;
+  }
+
+  // If active pitcher belonged to the cleared side, clear that too
+  if (G.activePitcherKey && typeof G.activePitcherKey === 'string' && G.activePitcherKey.indexOf(side + '-') === 0) {
+    G.activePitcherKey = null;
+  }
+
+  // Make sure cells get rebuilt to current inning count (will pad if needed; harmless when empty)
+  if (typeof ensureCells === 'function') ensureCells();
+
+  closeModal('clearSideConfirmModal');
+  persist();
+  renderAll();
+  var sideLabel = side === 'home' ? 'Home' : 'Away';
+  showToast(sideLabel + ' side cleared');
 }
 
 // ══════════════════════════════════════════════
