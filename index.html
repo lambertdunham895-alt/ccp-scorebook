@@ -74,8 +74,9 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .sg-pitch-btn:active,.sg-bip-btn:active,.sg-skip-btn:active,
 .sg-runner-btn:active,.sg-out-btn:active,.sg-hitto-btn:active,
 .sg-whap-btn:active,.pill-btn:active,.hist-delete-btn:active,
-#sgUndoBtn:active{transform:scale(0.94);transition:transform .08s ease;}
+#sgUndoBtn:active,#bigScoreBtn:active{transform:scale(0.94);transition:transform .08s ease;}
 .hist-delete-btn:active{background:rgba(229,57,53,0.22) !important;}
+#bigScoreBtn:active{box-shadow:0 2px 8px rgba(245,166,35,.25), inset 0 1px 0 rgba(255,255,255,.2) !important;}
 
 /* ── Pages ── */
 .page{display:none;animation:fadeIn .18s ease;}
@@ -457,6 +458,14 @@ select.form-input{appearance:none;}
 <!-- ═══════════════════ SCORECARD PAGE ═══════════════════ -->
 <div class="page active" id="page-scorecard">
 
+  <!-- ▶ SCORE THIS GAME — primary call-to-action banner -->
+  <button id="bigScoreBtn" onclick="enterScoreMode()" style="display:block;width:100%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-bottom:2px solid rgba(0,0,0,0.25);padding:18px 14px;font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--navy);cursor:pointer;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 4px 16px rgba(245,166,35,.35), inset 0 1px 0 rgba(255,255,255,.25);transition:transform .08s ease, box-shadow .2s ease;text-align:center;">
+    <span style="display:inline-flex;align-items:center;gap:10px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;"><path d="M8 5v14l11-7z"/></svg>
+      <span>Score This Game</span>
+    </span>
+  </button>
+
   <!-- Active Pitcher Banner -->
   <div id="activePitcherBanner" style="background:linear-gradient(135deg,#0e2347,#162d55);border-bottom:1px solid var(--border2);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
     <div style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;min-width:0;" onclick="showTab('lineup')">
@@ -468,7 +477,6 @@ select.form-input{appearance:none;}
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0;">
       <button id="quickCountBtn" onclick="quickOpenPitchCounter()" style="display:none;background:rgba(245,166,35,.12);border:1.5px solid rgba(245,166,35,.4);border-radius:10px;padding:7px 10px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;color:var(--accent);cursor:pointer;">⚡</button>
-      <button onclick="enterScoreMode()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;padding:8px 14px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--navy);cursor:pointer;box-shadow:0 0 10px rgba(245,166,35,.3);">▶ SCORE</button>
     </div>
   </div>
 
