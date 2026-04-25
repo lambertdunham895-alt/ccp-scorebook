@@ -420,6 +420,7 @@ select.form-input{appearance:none;}
     </div>
   </div>
   <div class="flex-row" style="gap:6px;">
+    <button class="btn btn-sm btn-secondary" onclick="openTeamsModal()">Teams</button>
     <button class="btn btn-sm btn-secondary" onclick="openSetupModal()">⚙ Setup</button>
     <button class="btn btn-sm btn-primary" onclick="saveGame()">💾 Save</button>
   </div>
@@ -698,8 +699,29 @@ select.form-input{appearance:none;}
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title">⚙ Game Setup</div>
-    <div class="form-group"><label class="form-label">Home Team</label><input class="form-input" id="setupHome" value="Home Team"></div>
-    <div class="form-group"><label class="form-label">Away Team</label><input class="form-input" id="setupAway" value="Away Team"></div>
+
+    <!-- Home Team -->
+    <div class="form-group">
+      <label class="form-label">Home Team</label>
+      <select class="form-input" id="setupHomeSelect" onchange="onSetupTeamSelectChange('home')" style="margin-bottom:6px;"></select>
+      <input class="form-input" id="setupHome" value="Home Team" placeholder="Type team name">
+      <label style="display:flex;align-items:center;gap:8px;margin-top:6px;cursor:pointer;font-size:12px;color:var(--gray);">
+        <input type="checkbox" id="setupHomeSaveNew" style="width:14px;height:14px;">
+        <span id="setupHomeSaveNewLabel">Save as new team in library</span>
+      </label>
+    </div>
+
+    <!-- Away Team -->
+    <div class="form-group">
+      <label class="form-label">Away Team</label>
+      <select class="form-input" id="setupAwaySelect" onchange="onSetupTeamSelectChange('away')" style="margin-bottom:6px;"></select>
+      <input class="form-input" id="setupAway" value="Away Team" placeholder="Type team name">
+      <label style="display:flex;align-items:center;gap:8px;margin-top:6px;cursor:pointer;font-size:12px;color:var(--gray);">
+        <input type="checkbox" id="setupAwaySaveNew" style="width:14px;height:14px;">
+        <span id="setupAwaySaveNewLabel">Save as new team in library</span>
+      </label>
+    </div>
+
     <div class="form-row">
       <div class="form-group"><label class="form-label">Innings</label><input class="form-input" id="setupInnings" type="number" value="7" min="3" max="9"></div>
       <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="setupDate" type="date"></div>
@@ -797,6 +819,83 @@ select.form-input{appearance:none;}
     <div class="flex-row" style="gap:10px;">
       <button class="btn btn-danger" style="flex:1;" onclick="confirmDeleteSavedGame()">Yes, Delete</button>
       <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('deleteGameConfirmModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ TEAMS LIBRARY MODAL ═══════════════════ -->
+<div class="modal-overlay" id="teamsModal">
+  <div class="modal" style="max-height:90vh;">
+    <div class="modal-handle"></div>
+    <div class="modal-title">My Teams</div>
+    <p style="font-size:12px;color:var(--gray);margin-bottom:14px;">Saved rosters across all your games. Tap a team to edit its roster, or use one when starting a new game.</p>
+
+    <!-- Filter tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button id="teamsFilterAllBtn" class="btn btn-sm btn-secondary" style="flex:1;border:2px solid var(--accent);color:var(--accent);" onclick="setTeamsFilter('all')">All</button>
+      <button id="teamsFilterMyBtn" class="btn btn-sm btn-secondary" style="flex:1;" onclick="setTeamsFilter('my')">My Teams</button>
+      <button id="teamsFilterOppBtn" class="btn btn-sm btn-secondary" style="flex:1;" onclick="setTeamsFilter('opp')">Opponents</button>
+    </div>
+
+    <div id="teamsListContainer" style="max-height:55vh;overflow-y:auto;margin-bottom:12px;"></div>
+
+    <button class="btn btn-primary" style="width:100%;margin-bottom:8px;" onclick="openTeamEditor(null)">+ Add New Team</button>
+    <button class="btn btn-secondary" style="width:100%;" onclick="closeModal('teamsModal')">Close</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ TEAM DETAIL MODAL ═══════════════════ -->
+<div class="modal-overlay" id="teamDetailModal">
+  <div class="modal" style="max-height:90vh;">
+    <div class="modal-handle"></div>
+    <div id="teamDetailHeader"></div>
+    <div id="teamDetailContent" style="margin-bottom:14px;"></div>
+    <div class="flex-row" style="gap:8px;">
+      <button class="btn btn-primary" style="flex:1;" id="teamDetailEditBtn">Edit Roster</button>
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('teamDetailModal');openTeamsModal();">Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ TEAM EDITOR MODAL ═══════════════════ -->
+<div class="modal-overlay" id="teamEditorModal">
+  <div class="modal" style="max-height:92vh;">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="teamEditorTitle">Edit Team</div>
+
+    <label style="font-size:12px;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px;">Team Name</label>
+    <input type="text" id="teamEditName" placeholder="e.g., Cardinals 12U" style="width:100%;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--white);margin-bottom:14px;">
+
+    <label style="display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:pointer;">
+      <input type="checkbox" id="teamEditIsMyTeam" style="width:18px;height:18px;cursor:pointer;">
+      <span style="font-size:14px;color:var(--white);">This is my team (vs. an opponent)</span>
+    </label>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <label style="font-size:12px;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;">Roster (<span id="teamEditRosterCount">0</span>)</label>
+      <button class="btn btn-sm btn-secondary" onclick="addTeamRosterRow()">+ Add Player</button>
+    </div>
+    <div id="teamEditRosterList" style="max-height:42vh;overflow-y:auto;margin-bottom:14px;"></div>
+
+    <div class="flex-row" style="gap:8px;margin-bottom:8px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="saveTeamEditor()">Save Team</button>
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('teamEditorModal')">Cancel</button>
+    </div>
+    <button id="teamEditDeleteBtn" class="btn btn-danger" style="width:100%;display:none;" onclick="confirmDeleteTeamFromEditor()">Delete This Team</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ DELETE TEAM CONFIRM MODAL ═══════════════════ -->
+<div class="modal-overlay" id="deleteTeamConfirmModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" style="color:var(--red);">Delete Team?</div>
+    <p style="font-size:14px;color:var(--white);margin-bottom:6px;">Permanently delete:</p>
+    <div id="deleteTeamLabel" style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent);margin-bottom:10px;"></div>
+    <p style="font-size:12px;color:var(--gray);margin-bottom:18px;">Past saved games keep their snapshot but lose the team link. Cannot be undone.</p>
+    <div class="flex-row" style="gap:10px;">
+      <button class="btn btn-danger" style="flex:1;" onclick="confirmDeleteTeam()">Delete</button>
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal('deleteTeamConfirmModal')">Cancel</button>
     </div>
   </div>
 </div>
@@ -1425,6 +1524,7 @@ const DP = {
 // ══════════════════════════════════════════════
 let G = {
   homeName:'Home Team', awayName:'Away Team',
+  homeTeamId:null, awayTeamId:null,
   totalInnings:7, gameDate:new Date().toISOString().split('T')[0],
   currentInning:1, currentHalf:'top',
   innings:9,
@@ -1433,7 +1533,8 @@ let G = {
   homeBatterIdx:0, awayBatterIdx:0,
   playLog:[], savedGames:[],
   homePitchers:[], awayPitchers:[],
-  activePitcherKey: null
+  activePitcherKey: null,
+  teams:[]   // ← NEW: persistent teams library
 };
 
 // Pending at-bat
@@ -1441,6 +1542,447 @@ let AB = {
   half:null, playerIdx:null, inning:null,
   result:null, outSeq:[], baseTo:null, scored:false, rbi:0
 };
+
+// ══════════════════════════════════════════════
+//  TEAMS LIBRARY — persistent across games
+// ══════════════════════════════════════════════
+// Each team: { id, name, isMyTeam, color, roster, createdAt, lastUsedAt }
+// roster items: { name, num, pos, age }
+
+function genTeamId() {
+  return 'team_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+// Defensive: ensure G.teams exists (handles old localStorage missing the field)
+function ensureTeamsLibrary() {
+  if (!G.teams) G.teams = [];
+}
+
+// Get all teams sorted by most recently used
+function getAllTeams() {
+  ensureTeamsLibrary();
+  return [...G.teams].sort((a, b) => {
+    const ta = new Date(a.lastUsedAt || a.createdAt || 0).getTime();
+    const tb = new Date(b.lastUsedAt || b.createdAt || 0).getTime();
+    return tb - ta;
+  });
+}
+
+function getTeamById(id) {
+  ensureTeamsLibrary();
+  if (!id) return null;
+  return G.teams.find(t => t.id === id) || null;
+}
+
+function getMyTeams() {
+  return getAllTeams().filter(t => t.isMyTeam);
+}
+
+function getOpponentTeams() {
+  return getAllTeams().filter(t => !t.isMyTeam);
+}
+
+// Create a new team. Returns the new team object.
+function createTeam(name, isMyTeam, roster) {
+  ensureTeamsLibrary();
+  const team = {
+    id: genTeamId(),
+    name: (name || 'Untitled Team').trim(),
+    isMyTeam: !!isMyTeam,
+    color: isMyTeam ? '#f5a623' : '#6b7f9e',
+    roster: Array.isArray(roster) ? JSON.parse(JSON.stringify(roster)) : [],
+    createdAt: new Date().toISOString(),
+    lastUsedAt: new Date().toISOString()
+  };
+  G.teams.push(team);
+  persist();
+  return team;
+}
+
+// Update an existing team (name, isMyTeam flag, or roster)
+function updateTeam(id, patch) {
+  const t = getTeamById(id);
+  if (!t) return null;
+  if (patch.name !== undefined) t.name = patch.name.trim();
+  if (patch.isMyTeam !== undefined) t.isMyTeam = !!patch.isMyTeam;
+  if (patch.color !== undefined) t.color = patch.color;
+  if (patch.roster !== undefined) t.roster = JSON.parse(JSON.stringify(patch.roster));
+  t.lastUsedAt = new Date().toISOString();
+  persist();
+  return t;
+}
+
+// Mark a team as recently used (called when a game starts using it)
+function touchTeam(id) {
+  const t = getTeamById(id);
+  if (t) {
+    t.lastUsedAt = new Date().toISOString();
+    persist();
+  }
+}
+
+// Delete a team. Past saved games keep their snapshot but lose the link.
+function deleteTeam(id) {
+  ensureTeamsLibrary();
+  const before = G.teams.length;
+  G.teams = G.teams.filter(t => t.id !== id);
+  // If the in-progress game was linked to this team, unlink it
+  if (G.homeTeamId === id) G.homeTeamId = null;
+  if (G.awayTeamId === id) G.awayTeamId = null;
+  persist();
+  return G.teams.length < before;
+}
+
+// ══════════════════════════════════════════════
+//  TEAMS UI — library list, editor, delete flow
+// ══════════════════════════════════════════════
+let _teamsFilter = 'all';                  // 'all' | 'my' | 'opp'
+let _teamEditorId = null;                  // null = creating new
+let _teamEditorRosterDraft = [];           // working copy of roster while editing
+let _pendingDeleteTeamId = null;
+
+function openTeamsModal() {
+  ensureTeamsLibrary();
+  setTeamsFilter('all');
+  openModal('teamsModal');
+}
+
+function setTeamsFilter(f) {
+  _teamsFilter = f;
+  ['All','My','Opp'].forEach(function(k){
+    const btn = document.getElementById('teamsFilter' + k + 'Btn');
+    if (!btn) return;
+    const active = (f === 'all' && k === 'All') || (f === 'my' && k === 'My') || (f === 'opp' && k === 'Opp');
+    btn.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+    btn.style.color = active ? 'var(--accent)' : 'var(--white)';
+  });
+  renderTeamsList();
+}
+
+function renderTeamsList() {
+  const c = document.getElementById('teamsListContainer');
+  if (!c) return;
+  let teams = getAllTeams();
+  if (_teamsFilter === 'my') teams = teams.filter(t => t.isMyTeam);
+  else if (_teamsFilter === 'opp') teams = teams.filter(t => !t.isMyTeam);
+
+  if (!teams.length) {
+    c.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--gray);font-size:13px;">No teams saved yet.<br>Tap "+ Add New Team" to start.</div>';
+    return;
+  }
+  c.innerHTML = '';
+  teams.forEach(function(t){
+    const row = document.createElement('div');
+    row.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;';
+    const myBadge = t.isMyTeam
+      ? '<span style="background:rgba(245,166,35,0.15);border:1px solid rgba(245,166,35,0.4);color:var(--accent);font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.06em;">MY TEAM</span>'
+      : '<span style="background:rgba(107,127,158,0.15);border:1px solid rgba(107,127,158,0.4);color:var(--gray);font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.06em;">OPPONENT</span>';
+    const rosterCount = (t.roster || []).length;
+    row.innerHTML =
+      '<div style="flex:1;min-width:0;">' +
+      '  <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">' + myBadge + '</div>' +
+      '  <div style="font-family:Oswald,sans-serif;font-size:16px;font-weight:600;color:var(--white);overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(t.name) + '</div>' +
+      '  <div style="font-size:11px;color:var(--gray);margin-top:2px;">' + rosterCount + ' players</div>' +
+      '</div>' +
+      '<button data-team-id="' + t.id + '" class="team-edit-btn btn btn-sm btn-secondary" style="flex-shrink:0;">Edit</button>';
+    row.querySelector('.team-edit-btn').onclick = function(e){
+      e.stopPropagation();
+      openTeamEditor(t.id);
+    };
+    row.onclick = function(){ openTeamDetail(t.id); };
+    c.appendChild(row);
+  });
+}
+
+// Compute a team's season summary across all saved games where they played
+function computeTeamSeasonSummary(teamId) {
+  ensureTeamsLibrary();
+  if (!G.savedGames || !G.savedGames.length) {
+    return { games: 0, wins: 0, losses: 0, runsFor: 0, runsAgainst: 0, recentGames: [], topBatters: [], topPitchers: [] };
+  }
+  const t = getTeamById(teamId);
+  if (!t) return { games: 0, wins: 0, losses: 0, runsFor: 0, runsAgainst: 0, recentGames: [], topBatters: [], topPitchers: [] };
+
+  let games = 0, wins = 0, losses = 0, runsFor = 0, runsAgainst = 0;
+  const recentGames = [];
+  // For top stats: aggregate batter & pitcher records by name|num
+  const batterAgg = new Map();   // key → { name, num, ab, h, hr }
+  const pitcherAgg = new Map();  // key → { name, num, outs, ks, runs, balls, strikes }
+
+  G.savedGames.forEach(function(gm){
+    let side = null;
+    if (gm.homeTeamId === teamId) side = 'home';
+    else if (gm.awayTeamId === teamId) side = 'away';
+    else if (!gm.homeTeamId && gm.homeName === t.name) side = 'home';
+    else if (!gm.awayTeamId && gm.awayName === t.name) side = 'away';
+    if (!side) return;
+
+    games++;
+    const myR = side==='home' ? (gm.homeRuns||0) : (gm.awayRuns||0);
+    const oppR = side==='home' ? (gm.awayRuns||0) : (gm.homeRuns||0);
+    runsFor += myR;
+    runsAgainst += oppR;
+    if (myR > oppR) wins++; else if (myR < oppR) losses++;
+    const oppName = side==='home' ? gm.awayName : gm.homeName;
+    recentGames.push({ date: gm.date, myR: myR, oppR: oppR, oppName: oppName, won: myR > oppR });
+
+    // Batter aggregation
+    const myLineup = side==='home' ? (gm.homeLineup||[]) : (gm.awayLineup||[]);
+    const myCells = side==='home' ? (gm.homeCells||[]) : (gm.awayCells||[]);
+    myLineup.forEach(function(p, idx){
+      if (!p || !p.name) return;
+      const key = p.name + '|' + (p.num||'');
+      const gs = calcGameStats(myCells[idx]);
+      const cur = batterAgg.get(key) || { name: p.name, num: p.num, ab:0, h:0, hr:0, rbi:0 };
+      cur.ab += gs.ab; cur.h += gs.h; cur.hr += gs.hr; cur.rbi += gs.rbi;
+      batterAgg.set(key, cur);
+    });
+
+    // Pitcher aggregation
+    const myPitchers = side==='home' ? (gm.homePitchers||[]) : (gm.awayPitchers||[]);
+    myPitchers.forEach(function(p){
+      if (!p || !p.name) return;
+      const key = p.name + '|' + (p.num||'');
+      const cur = pitcherAgg.get(key) || { name: p.name, num: p.num, outs:0, ks:0, runs:0, balls:0, strikes:0, hits:0, walks:0 };
+      cur.outs += (p.outs||0);
+      cur.ks += (p.ks||0);
+      cur.runs += (p.runs||0);
+      cur.balls += (p.balls||0);
+      cur.strikes += (p.strikes||0);
+      cur.hits += (p.hits||0);
+      cur.walks += (p.walks||0);
+      pitcherAgg.set(key, cur);
+    });
+  });
+
+  // Top 3 batters by AVG (min 3 ABs to be meaningful)
+  const topBatters = Array.from(batterAgg.values())
+    .filter(function(b){ return b.ab >= 3; })
+    .map(function(b){ return Object.assign({}, b, { avg: b.ab > 0 ? (b.h / b.ab) : 0 }); })
+    .sort(function(a, b){ return b.avg - a.avg; })
+    .slice(0, 3);
+
+  // Top 3 pitchers by ERA (min 3 outs = 1 IP)
+  const topPitchers = Array.from(pitcherAgg.values())
+    .filter(function(p){ return p.outs >= 3; })
+    .map(function(p){
+      const ipDec = p.outs / 3;
+      const era = ipDec > 0 ? ((p.runs * 7) / ipDec) : 0;
+      return Object.assign({}, p, { era: era, ip: ipDec });
+    })
+    .sort(function(a, b){ return a.era - b.era; })
+    .slice(0, 3);
+
+  // Sort recent games newest-first, keep last 5
+  recentGames.sort(function(a, b){
+    return (new Date(b.date||0).getTime()) - (new Date(a.date||0).getTime());
+  });
+
+  return { games, wins, losses, runsFor, runsAgainst, recentGames: recentGames.slice(0, 5), topBatters, topPitchers };
+}
+
+function openTeamDetail(teamId) {
+  const t = getTeamById(teamId);
+  if (!t) return;
+  const summary = computeTeamSeasonSummary(teamId);
+  const myBadge = t.isMyTeam
+    ? '<span style="background:rgba(245,166,35,0.15);border:1px solid rgba(245,166,35,0.4);color:var(--accent);font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.06em;">MY TEAM</span>'
+    : '<span style="background:rgba(107,127,158,0.15);border:1px solid rgba(107,127,158,0.4);color:var(--gray);font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.06em;">OPPONENT</span>';
+
+  document.getElementById('teamDetailHeader').innerHTML =
+    '<div style="margin-bottom:4px;">' + myBadge + '</div>' +
+    '<div class="modal-title" style="margin-bottom:6px;">' + escapeHtml(t.name) + '</div>' +
+    '<div style="font-size:12px;color:var(--gray);margin-bottom:14px;">' + (t.roster || []).length + ' players · created ' + new Date(t.createdAt).toLocaleDateString() + '</div>';
+
+  let html = '';
+
+  // Season record card
+  if (summary.games === 0) {
+    html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;color:var(--gray);font-size:13px;">No games played yet with this team.</div>';
+  } else {
+    const recordStr = summary.wins + '-' + summary.losses + (summary.games - summary.wins - summary.losses > 0 ? '-' + (summary.games - summary.wins - summary.losses) : '');
+    html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;">' +
+      '<div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:6px;">Season Record</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">' +
+      '<div><div style="font-family:Oswald,sans-serif;font-size:24px;font-weight:800;color:var(--accent);">' + recordStr + '</div><div style="font-size:10px;color:var(--gray);">RECORD</div></div>' +
+      '<div><div style="font-family:Oswald,sans-serif;font-size:24px;font-weight:800;color:var(--green);">' + summary.runsFor + '</div><div style="font-size:10px;color:var(--gray);">RUNS FOR</div></div>' +
+      '<div><div style="font-family:Oswald,sans-serif;font-size:24px;font-weight:800;color:var(--red);">' + summary.runsAgainst + '</div><div style="font-size:10px;color:var(--gray);">RUNS AGAINST</div></div>' +
+      '</div></div>';
+
+    // Top batters
+    if (summary.topBatters.length) {
+      html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;">' +
+        '<div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px;">Top Batters (by AVG)</div>';
+      summary.topBatters.forEach(function(b){
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);">' +
+          '<div style="font-size:13px;color:var(--white);">' + (b.num ? '#' + escapeHtml(b.num) + ' ' : '') + escapeHtml(b.name) + '</div>' +
+          '<div style="font-family:Oswald,sans-serif;font-size:14px;font-weight:700;color:var(--accent);">' + b.avg.toFixed(3).slice(1) + ' (' + b.h + '/' + b.ab + ')</div>' +
+          '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Top pitchers
+    if (summary.topPitchers.length) {
+      html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;">' +
+        '<div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px;">Top Pitchers (by ERA)</div>';
+      summary.topPitchers.forEach(function(p){
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);">' +
+          '<div style="font-size:13px;color:var(--white);">' + (p.num ? '#' + escapeHtml(p.num) + ' ' : '') + escapeHtml(p.name) + '</div>' +
+          '<div style="font-family:Oswald,sans-serif;font-size:14px;font-weight:700;color:var(--accent);">' + p.era.toFixed(2) + ' ERA</div>' +
+          '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Recent games
+    if (summary.recentGames.length) {
+      html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;">' +
+        '<div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px;">Recent Games</div>';
+      summary.recentGames.forEach(function(rg){
+        const wlBadge = rg.won
+          ? '<span style="background:var(--green);color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;">W</span>'
+          : '<span style="background:var(--red);color:#fff;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;">L</span>';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;">' +
+          '<div style="display:flex;gap:6px;align-items:center;">' + wlBadge + '<span style="color:var(--gray);">vs ' + escapeHtml(rg.oppName || '?') + '</span></div>' +
+          '<div style="font-family:Oswald,sans-serif;color:var(--white);font-weight:600;">' + rg.myR + '–' + rg.oppR + '</div>' +
+          '</div>';
+      });
+      html += '</div>';
+    }
+  }
+
+  document.getElementById('teamDetailContent').innerHTML = html;
+  document.getElementById('teamDetailEditBtn').onclick = function(){
+    closeModal('teamDetailModal');
+    openTeamEditor(teamId);
+  };
+  closeModal('teamsModal');
+  openModal('teamDetailModal');
+}
+
+// Helper: escape HTML for safe innerHTML insertion
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c];
+  });
+}
+
+// Open the editor. Pass null to create a new team.
+function openTeamEditor(teamId) {
+  _teamEditorId = teamId;
+  const t = teamId ? getTeamById(teamId) : null;
+  document.getElementById('teamEditorTitle').textContent = t ? 'Edit Team' : 'New Team';
+  document.getElementById('teamEditName').value = t ? t.name : '';
+  document.getElementById('teamEditIsMyTeam').checked = t ? !!t.isMyTeam : true;
+  document.getElementById('teamEditDeleteBtn').style.display = t ? 'block' : 'none';
+  _teamEditorRosterDraft = t ? JSON.parse(JSON.stringify(t.roster || [])) : [];
+  renderTeamEditorRoster();
+  closeModal('teamsModal');
+  openModal('teamEditorModal');
+}
+
+function renderTeamEditorRoster() {
+  const list = document.getElementById('teamEditRosterList');
+  const count = document.getElementById('teamEditRosterCount');
+  if (!list) return;
+  count.textContent = _teamEditorRosterDraft.length;
+  if (!_teamEditorRosterDraft.length) {
+    list.innerHTML = '<div style="padding:18px;text-align:center;color:var(--gray);font-size:12px;">No players added yet. Tap "+ Add Player" above.</div>';
+    return;
+  }
+  const positions = ['','P','C','1B','2B','3B','SS','LF','CF','RF','DH','—'];
+  list.innerHTML = '';
+  _teamEditorRosterDraft.forEach(function(player, idx){
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px;margin-bottom:6px;';
+    row.innerHTML =
+      '<input type="text" placeholder="#" value="' + escapeHtml(player.num || '') + '" data-idx="' + idx + '" data-field="num" style="width:46px;padding:6px;background:var(--navy2);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:14px;text-align:center;">' +
+      '<input type="text" placeholder="Name" value="' + escapeHtml(player.name || '') + '" data-idx="' + idx + '" data-field="name" style="flex:1;min-width:0;padding:6px;background:var(--navy2);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:14px;">' +
+      '<select data-idx="' + idx + '" data-field="pos" style="width:64px;padding:6px;background:var(--navy2);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:13px;">' +
+      positions.map(function(p){
+        const sel = (p === (player.pos || '')) ? ' selected' : '';
+        return '<option value="' + p + '"' + sel + '>' + (p || 'Pos') + '</option>';
+      }).join('') +
+      '</select>' +
+      '<button data-idx="' + idx + '" class="team-roster-del-btn" style="background:rgba(229,57,53,0.12);border:1px solid rgba(229,57,53,0.4);border-radius:6px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;color:#e53935;font-size:18px;line-height:1;">×</button>';
+    list.appendChild(row);
+  });
+
+  // Wire change handlers
+  list.querySelectorAll('input[data-field], select[data-field]').forEach(function(el){
+    el.oninput = function(){
+      const idx = parseInt(el.getAttribute('data-idx'));
+      const field = el.getAttribute('data-field');
+      if (_teamEditorRosterDraft[idx]) _teamEditorRosterDraft[idx][field] = el.value;
+    };
+    el.onchange = el.oninput;
+  });
+  list.querySelectorAll('.team-roster-del-btn').forEach(function(btn){
+    btn.onclick = function(){
+      const idx = parseInt(btn.getAttribute('data-idx'));
+      _teamEditorRosterDraft.splice(idx, 1);
+      renderTeamEditorRoster();
+    };
+  });
+}
+
+function addTeamRosterRow() {
+  _teamEditorRosterDraft.push({ name: '', num: '', pos: '', age: null });
+  renderTeamEditorRoster();
+}
+
+function saveTeamEditor() {
+  const name = (document.getElementById('teamEditName').value || '').trim();
+  const isMyTeam = document.getElementById('teamEditIsMyTeam').checked;
+  if (!name) {
+    showToast('Team name is required');
+    return;
+  }
+  // Strip empty roster rows (no name AND no number)
+  const cleanRoster = _teamEditorRosterDraft.filter(function(p){
+    return (p.name && p.name.trim()) || (p.num && String(p.num).trim());
+  });
+  let savedTeamId = _teamEditorId;
+  if (_teamEditorId) {
+    updateTeam(_teamEditorId, { name: name, isMyTeam: isMyTeam, roster: cleanRoster });
+    showToast('Team updated');
+  } else {
+    const t = createTeam(name, isMyTeam, cleanRoster);
+    savedTeamId = t.id;
+    showToast('Team created');
+  }
+  closeModal('teamEditorModal');
+  // Return to detail view if editing existing, library list if creating new
+  if (_teamEditorId) {
+    openTeamDetail(savedTeamId);
+  } else {
+    openTeamsModal();
+  }
+}
+
+function confirmDeleteTeamFromEditor() {
+  if (!_teamEditorId) return;
+  const t = getTeamById(_teamEditorId);
+  if (!t) return;
+  _pendingDeleteTeamId = _teamEditorId;
+  document.getElementById('deleteTeamLabel').textContent = t.name;
+  openModal('deleteTeamConfirmModal');
+}
+
+function confirmDeleteTeam() {
+  if (!_pendingDeleteTeamId) {
+    closeModal('deleteTeamConfirmModal');
+    return;
+  }
+  deleteTeam(_pendingDeleteTeamId);
+  _pendingDeleteTeamId = null;
+  closeModal('deleteTeamConfirmModal');
+  closeModal('teamEditorModal');
+  showToast('Team deleted');
+  openTeamsModal();
+}
 
 // ══════════════════════════════════════════════
 //  INIT
@@ -2156,18 +2698,137 @@ function setHalf(h){
 //  SETUP
 // ══════════════════════════════════════════════
 function openSetupModal(){
+  populateSetupTeamDropdowns();
   document.getElementById('setupHome').value=G.homeName;
   document.getElementById('setupAway').value=G.awayName;
   document.getElementById('setupInnings').value=G.totalInnings;
   document.getElementById('setupDate').value=G.gameDate;
+  document.getElementById('setupHomeSaveNew').checked=false;
+  document.getElementById('setupAwaySaveNew').checked=false;
+  // Reflect current team links in the dropdowns
+  document.getElementById('setupHomeSelect').value = G.homeTeamId || '__free__';
+  document.getElementById('setupAwaySelect').value = G.awayTeamId || '__free__';
+  refreshSaveNewLabels();
   openModal('setupModal');
 }
+
+// Populate the home/away team selects with library teams
+function populateSetupTeamDropdowns() {
+  ensureTeamsLibrary();
+  const teams = getAllTeams();
+  ['home','away'].forEach(function(side){
+    const sel = document.getElementById('setup' + (side==='home'?'Home':'Away') + 'Select');
+    if (!sel) return;
+    sel.innerHTML = '';
+    // Default option: type freely
+    const optFree = document.createElement('option');
+    optFree.value = '__free__';
+    optFree.textContent = '— Type new team —';
+    sel.appendChild(optFree);
+    // My teams group
+    const myGroup = document.createElement('optgroup');
+    myGroup.label = 'My Teams';
+    teams.filter(function(t){return t.isMyTeam;}).forEach(function(t){
+      const o = document.createElement('option');
+      o.value = t.id;
+      o.textContent = t.name;
+      myGroup.appendChild(o);
+    });
+    if (myGroup.children.length) sel.appendChild(myGroup);
+    // Opponents group
+    const oppGroup = document.createElement('optgroup');
+    oppGroup.label = 'Opponents';
+    teams.filter(function(t){return !t.isMyTeam;}).forEach(function(t){
+      const o = document.createElement('option');
+      o.value = t.id;
+      o.textContent = t.name;
+      oppGroup.appendChild(o);
+    });
+    if (oppGroup.children.length) sel.appendChild(oppGroup);
+  });
+}
+
+// When user picks a saved team from dropdown, sync the text input + roster
+function onSetupTeamSelectChange(side) {
+  const sel = document.getElementById('setup' + (side==='home'?'Home':'Away') + 'Select');
+  const txt = document.getElementById('setup' + (side==='home'?'Home':'Away'));
+  const saveCheck = document.getElementById('setup' + (side==='home'?'Home':'Away') + 'SaveNew');
+  if (sel.value === '__free__') {
+    // Free typing — clear name to invite a new entry
+    txt.value = '';
+    txt.disabled = false;
+    if (saveCheck) saveCheck.disabled = false;
+  } else {
+    const t = getTeamById(sel.value);
+    if (t) {
+      txt.value = t.name;
+      txt.disabled = true;
+      // No need to "save as new" if picking from library
+      if (saveCheck) { saveCheck.checked = false; saveCheck.disabled = true; }
+    }
+  }
+  refreshSaveNewLabels();
+}
+
+function refreshSaveNewLabels() {
+  ['home','away'].forEach(function(side){
+    const sel = document.getElementById('setup' + (side==='home'?'Home':'Away') + 'Select');
+    const lbl = document.getElementById('setup' + (side==='home'?'Home':'Away') + 'SaveNewLabel');
+    const saveCheck = document.getElementById('setup' + (side==='home'?'Home':'Away') + 'SaveNew');
+    if (!sel || !lbl) return;
+    if (sel.value === '__free__') {
+      lbl.textContent = side === 'home' ? 'Save as new MY team' : 'Save as new OPPONENT';
+      saveCheck.disabled = false;
+    } else {
+      lbl.textContent = 'Save as new team in library';
+      saveCheck.disabled = true;
+    }
+  });
+}
+
 function applySetup(){
-  G.homeName=document.getElementById('setupHome').value||'Home';
-  G.awayName=document.getElementById('setupAway').value||'Away';
-  G.totalInnings=parseInt(document.getElementById('setupInnings').value)||7;
-  G.gameDate=document.getElementById('setupDate').value;
-  ensureCells();closeModal('setupModal');persist();renderAll();showToast('Settings applied');
+  const homeSel = document.getElementById('setupHomeSelect').value;
+  const awaySel = document.getElementById('setupAwaySelect').value;
+  const homeName = (document.getElementById('setupHome').value || 'Home').trim();
+  const awayName = (document.getElementById('setupAway').value || 'Away').trim();
+
+  // Resolve home team (library or new)
+  let homeTeam = null;
+  if (homeSel !== '__free__') {
+    homeTeam = getTeamById(homeSel);
+  } else if (document.getElementById('setupHomeSaveNew').checked && homeName) {
+    homeTeam = createTeam(homeName, true, []);  // home defaults to "my team"
+  }
+  // Resolve away team (library or new)
+  let awayTeam = null;
+  if (awaySel !== '__free__') {
+    awayTeam = getTeamById(awaySel);
+  } else if (document.getElementById('setupAwaySaveNew').checked && awayName) {
+    awayTeam = createTeam(awayName, false, []);  // away defaults to opponent
+  }
+
+  G.homeName = homeTeam ? homeTeam.name : homeName;
+  G.awayName = awayTeam ? awayTeam.name : awayName;
+  G.homeTeamId = homeTeam ? homeTeam.id : null;
+  G.awayTeamId = awayTeam ? awayTeam.id : null;
+
+  // If a saved team was picked, hydrate lineup from its roster (only if the lineup is currently empty)
+  if (homeTeam && (!G.homeLineup || G.homeLineup.length === 0) && homeTeam.roster && homeTeam.roster.length) {
+    G.homeLineup = JSON.parse(JSON.stringify(homeTeam.roster));
+  }
+  if (awayTeam && (!G.awayLineup || G.awayLineup.length === 0) && awayTeam.roster && awayTeam.roster.length) {
+    G.awayLineup = JSON.parse(JSON.stringify(awayTeam.roster));
+  }
+  if (homeTeam) touchTeam(homeTeam.id);
+  if (awayTeam) touchTeam(awayTeam.id);
+
+  G.totalInnings = parseInt(document.getElementById('setupInnings').value) || 7;
+  G.gameDate = document.getElementById('setupDate').value;
+  ensureCells();
+  closeModal('setupModal');
+  persist();
+  renderAll();
+  showToast('Settings applied');
 }
 function resetGame(){
   openModal('resetConfirmModal');
@@ -2175,7 +2836,8 @@ function resetGame(){
 
 function confirmResetGame(){
   const sg=G.savedGames||[];
-  G={homeName:G.homeName,awayName:G.awayName,totalInnings:G.totalInnings,gameDate:G.gameDate,currentInning:1,currentHalf:'top',homeCells:[],awayCells:[],homeLineup:[...G.homeLineup],awayLineup:[...G.awayLineup],homeBatterIdx:0,awayBatterIdx:0,playLog:[],homePitchers:[],awayPitchers:[],activePitcherKey:null,savedGames:sg};
+  const tms=G.teams||[];
+  G={homeName:G.homeName,awayName:G.awayName,homeTeamId:G.homeTeamId,awayTeamId:G.awayTeamId,totalInnings:G.totalInnings,gameDate:G.gameDate,currentInning:1,currentHalf:'top',homeCells:[],awayCells:[],homeLineup:[...G.homeLineup],awayLineup:[...G.awayLineup],homeBatterIdx:0,awayBatterIdx:0,playLog:[],homePitchers:[],awayPitchers:[],activePitcherKey:null,savedGames:sg,teams:tms};
   ensureCells();
   closeModal('resetConfirmModal');
   closeModal('setupModal');
@@ -2390,6 +3052,7 @@ function saveGame(){
   const awayR=G.awayCells.reduce((t,row)=>t+row.filter(c=>c&&c.scored).length+row.reduce((s,c)=>s+(c&&c.rbi?c.rbi:0),0),0);
   G.savedGames.push({
     homeName:G.homeName, awayName:G.awayName,
+    homeTeamId:G.homeTeamId||null, awayTeamId:G.awayTeamId||null,
     totalInnings:G.totalInnings, date:G.gameDate,
     homeRuns:homeR, awayRuns:awayR,
     homeLineup:JSON.parse(JSON.stringify(G.homeLineup)),
@@ -2401,6 +3064,21 @@ function saveGame(){
     playLog:[...(G.playLog||[])],
     savedAt:new Date().toISOString()
   });
+  // Bump lastUsedAt on linked teams + sync any roster changes back to the library
+  if (G.homeTeamId) {
+    const ht = getTeamById(G.homeTeamId);
+    if (ht && G.homeLineup && G.homeLineup.length) {
+      ht.roster = JSON.parse(JSON.stringify(G.homeLineup));
+    }
+    touchTeam(G.homeTeamId);
+  }
+  if (G.awayTeamId) {
+    const at = getTeamById(G.awayTeamId);
+    if (at && G.awayLineup && G.awayLineup.length) {
+      at.roster = JSON.parse(JSON.stringify(G.awayLineup));
+    }
+    touchTeam(G.awayTeamId);
+  }
   persist();renderHistory();showToast('Game saved! Season stats updated.');
 }
 function renderHistory(){
@@ -2413,7 +3091,20 @@ function renderHistory(){
     c.style.cssText='background:var(--card);border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin-bottom:9px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;';
     // Escape the savedAt for safe attribute embedding
     const savedAt = g.savedAt || ('legacy:' + g.date + ':' + g.homeName + ':' + g.awayName);
-    c.innerHTML=`<div style="flex:1;min-width:0;"><div style="font-size:11px;color:var(--gray);margin-bottom:3px;">${g.date}</div><div style="font-family:Oswald,sans-serif;font-size:15px;font-weight:600;">${g.homeName} vs ${g.awayName}</div><div style="margin-top:4px;"><span style="background:${won?'var(--green)':'var(--red)'};color:#fff;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;">${won?'WIN':'LOSS'}</span></div></div><div style="text-align:right;font-family:Oswald,sans-serif;font-size:22px;font-weight:700;color:var(--accent);">${g.homeRuns} – ${g.awayRuns}</div><button class="hist-delete-btn" data-sid="${savedAt.replace(/"/g,'&quot;')}" style="background:rgba(229,57,53,0.12);border:1px solid rgba(229,57,53,0.4);border-radius:7px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:transform .08s ease, background .15s ease;" title="Delete game"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>`;
+    // Team link status: was this game linked to library teams? Are they still in the library?
+    let linkBadge = '';
+    if (g.homeTeamId || g.awayTeamId) {
+      const homeStillLinked = g.homeTeamId ? !!getTeamById(g.homeTeamId) : true;
+      const awayStillLinked = g.awayTeamId ? !!getTeamById(g.awayTeamId) : true;
+      if (g.homeTeamId && g.awayTeamId && homeStillLinked && awayStillLinked) {
+        linkBadge = '<span style="color:var(--green);font-size:10px;margin-left:6px;" title="Both teams in library">●</span>';
+      } else if ((g.homeTeamId && !homeStillLinked) || (g.awayTeamId && !awayStillLinked)) {
+        linkBadge = '<span style="color:var(--red);font-size:10px;margin-left:6px;" title="Linked team was deleted">●</span>';
+      } else {
+        linkBadge = '<span style="color:var(--gray);font-size:10px;margin-left:6px;" title="Partially linked to library">●</span>';
+      }
+    }
+    c.innerHTML=`<div style="flex:1;min-width:0;"><div style="font-size:11px;color:var(--gray);margin-bottom:3px;">${g.date}${linkBadge}</div><div style="font-family:Oswald,sans-serif;font-size:15px;font-weight:600;">${g.homeName} vs ${g.awayName}</div><div style="margin-top:4px;"><span style="background:${won?'var(--green)':'var(--red)'};color:#fff;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;">${won?'WIN':'LOSS'}</span></div></div><div style="text-align:right;font-family:Oswald,sans-serif;font-size:22px;font-weight:700;color:var(--accent);">${g.homeRuns} – ${g.awayRuns}</div><button class="hist-delete-btn" data-sid="${savedAt.replace(/"/g,'&quot;')}" style="background:rgba(229,57,53,0.12);border:1px solid rgba(229,57,53,0.4);border-radius:7px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:transform .08s ease, background .15s ease;" title="Delete game"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>`;
     // Row click → show detail, but NOT when trash icon clicked
     c.onclick=(e)=>{
       if (e.target.closest('.hist-delete-btn')) return;
@@ -2691,13 +3382,31 @@ function slg(singles, doubles, triples, hr, ab) {
 function calcSeasonStats(team, playerName) {
   const s = {ab:0,r:0,h:0,rbi:0,singles:0,doubles:0,triples:0,hr:0,bb:0,hbp:0,k:0,sac:0,sf:0,games:0};
   if (!G.savedGames) return s;
+
+  // Identify the current team: prefer the linked team ID, fall back to team name
+  const currentTeamId = team==='home' ? G.homeTeamId : G.awayTeamId;
+  const currentTeamName = team==='home' ? G.homeName : G.awayName;
+
   G.savedGames.forEach(game => {
-    const lineup = team==='home' ? (game.homeLineup||[]) : (game.awayLineup||[]);
-    const cells  = team==='home' ? (game.homeCells||[])  : (game.awayCells||[]);
-    const pi = lineup.findIndex(p => p.name === playerName);
+    // Find which side of THIS saved game matches our current team's identity
+    let savedLineup = null;
+    let savedCells = null;
+    if (currentTeamId) {
+      // Prefer team ID match
+      if (game.homeTeamId === currentTeamId) { savedLineup = game.homeLineup; savedCells = game.homeCells; }
+      else if (game.awayTeamId === currentTeamId) { savedLineup = game.awayLineup; savedCells = game.awayCells; }
+    }
+    if (!savedLineup) {
+      // Fall back to name match (handles legacy games saved before team library existed)
+      if (game.homeName === currentTeamName) { savedLineup = game.homeLineup; savedCells = game.homeCells; }
+      else if (game.awayName === currentTeamName) { savedLineup = game.awayLineup; savedCells = game.awayCells; }
+    }
+    if (!savedLineup) return;  // game doesn't include this team
+
+    const pi = savedLineup.findIndex(p => p.name === playerName);
     if (pi === -1) return;
     s.games++;
-    const gs = calcGameStats(cells[pi]);
+    const gs = calcGameStats(savedCells[pi]);
     Object.keys(gs).forEach(k => { s[k] = (s[k]||0) + gs[k]; });
   });
   return s;
@@ -2848,15 +3557,22 @@ function calcPitchingSeasonForPitcher(team, name, num) {
     }
   }
 
-  // 2) Saved games — but only games where THIS team's name matches, so we
-  //    don't accidentally match a pitcher with the same name on another team
+  // 2) Saved games — match by team identity (ID first, name fallback)
   const teamName = team==='home' ? G.homeName : G.awayName;
+  const teamId = team==='home' ? G.homeTeamId : G.awayTeamId;
   if (G.savedGames) {
     G.savedGames.forEach(gm => {
-      // Find this team's pitcher list in the saved game by team name
       let savedList = null;
-      if (gm.homeName === teamName) savedList = gm.homePitchers;
-      else if (gm.awayName === teamName) savedList = gm.awayPitchers;
+      // Prefer team ID match for stable cross-game tracking
+      if (teamId) {
+        if (gm.homeTeamId === teamId) savedList = gm.homePitchers;
+        else if (gm.awayTeamId === teamId) savedList = gm.awayPitchers;
+      }
+      if (!savedList) {
+        // Fall back to name match (legacy games / unlinked games)
+        if (gm.homeName === teamName) savedList = gm.homePitchers;
+        else if (gm.awayName === teamName) savedList = gm.awayPitchers;
+      }
       if (!savedList) return;
       const sp = savedList.find(matchKey);
       if (sp && (sp.balls + sp.strikes > 0 || sp.outs > 0)) {
@@ -2898,11 +3614,20 @@ function getPitcherListForStats() {
     }
   });
   const teamName = statsTeam==='home' ? G.homeName : G.awayName;
+  const teamId = statsTeam==='home' ? G.homeTeamId : G.awayTeamId;
   if (G.savedGames) {
     G.savedGames.forEach(gm => {
       let savedList = null;
-      if (gm.homeName === teamName) savedList = gm.homePitchers;
-      else if (gm.awayName === teamName) savedList = gm.awayPitchers;
+      // Prefer team ID match
+      if (teamId) {
+        if (gm.homeTeamId === teamId) savedList = gm.homePitchers;
+        else if (gm.awayTeamId === teamId) savedList = gm.awayPitchers;
+      }
+      // Fall back to name match for legacy/unlinked games
+      if (!savedList) {
+        if (gm.homeName === teamName) savedList = gm.homePitchers;
+        else if (gm.awayName === teamName) savedList = gm.awayPitchers;
+      }
       if (!savedList) return;
       savedList.forEach(sp => {
         if ((sp.balls + sp.strikes) > 0 || (sp.outs||0) > 0) {
