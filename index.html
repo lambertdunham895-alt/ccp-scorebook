@@ -871,6 +871,24 @@ select.form-input{appearance:none;}
       <span style="font-size:14px;color:var(--white);">This is my team (vs. an opponent)</span>
     </label>
 
+    <!-- Photo scan (auto-fill roster) -->
+    <div style="background:rgba(232,160,32,.07);border:1.5px dashed var(--accent);border-radius:10px;padding:12px;margin-bottom:12px;text-align:center;cursor:pointer;" onclick="document.getElementById('teamPhotoInput').click()">
+      <div style="font-size:26px;margin-bottom:4px;">📸</div>
+      <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);">Scan Roster Sheet</div>
+      <div style="font-size:11px;color:var(--gray);margin-top:3px;">Take a photo of your roster — players added automatically</div>
+      <input type="file" id="teamPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="scanTeamRosterPhoto(event)">
+    </div>
+
+    <!-- Scan status -->
+    <div id="teamScanStatus" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:var(--gray);text-align:center;"></div>
+
+    <!-- Scanned preview list -->
+    <div id="teamScannedList" style="display:none;margin-bottom:12px;">
+      <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:6px;">Players found — tap ✕ to remove any</div>
+      <div id="teamScannedPlayers"></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="confirmScannedPlayersForTeam()">✓ Add All to Roster</button>
+    </div>
+
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <label style="font-size:12px;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;">Roster (<span id="teamEditRosterCount">0</span>)</label>
       <button class="btn btn-sm btn-secondary" onclick="addTeamRosterRow()">+ Add Player</button>
@@ -1878,6 +1896,14 @@ function openTeamEditor(teamId) {
   document.getElementById('teamEditIsMyTeam').checked = t ? !!t.isMyTeam : true;
   document.getElementById('teamEditDeleteBtn').style.display = t ? 'block' : 'none';
   _teamEditorRosterDraft = t ? JSON.parse(JSON.stringify(t.roster || [])) : [];
+  // Reset scan UI when opening the editor
+  teamScannedPlayersList = [];
+  var _scanStatusEl = document.getElementById('teamScanStatus');
+  var _scanListEl = document.getElementById('teamScannedList');
+  var _scanRowsEl = document.getElementById('teamScannedPlayers');
+  if (_scanStatusEl) { _scanStatusEl.style.display = 'none'; _scanStatusEl.innerHTML = ''; _scanStatusEl.style.color = 'var(--gray)'; }
+  if (_scanListEl) _scanListEl.style.display = 'none';
+  if (_scanRowsEl) _scanRowsEl.innerHTML = '';
   renderTeamEditorRoster();
   closeModal('teamsModal');
   openModal('teamEditorModal');
@@ -3293,6 +3319,121 @@ function confirmScannedPlayers() {
   scannedPlayersList = [];
   document.getElementById('scannedList').style.display = 'none';
   document.getElementById('scanStatus').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════
+//  TEAM ROSTER SCAN (inside Team Editor modal)
+// ══════════════════════════════════════════════
+var teamScannedPlayersList = [];
+
+async function scanTeamRosterPhoto(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+
+  // Reset
+  teamScannedPlayersList = [];
+  document.getElementById('teamScannedList').style.display = 'none';
+  document.getElementById('teamScannedPlayers').innerHTML = '';
+
+  // Show loading
+  var status = document.getElementById('teamScanStatus');
+  status.style.color = 'var(--gray)';
+  status.style.display = 'block';
+  status.innerHTML = '⏳ Reading roster sheet...';
+
+  try {
+    // Convert image to base64
+    var base64 = await new Promise(function(res, rej){
+      var reader = new FileReader();
+      reader.onload = function(){ res(reader.result.split(',')[1]); };
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+
+    // Call Claude vision API (same endpoint as lineup scan)
+    var response = await fetch('https://coachconnectpro.net/api/scan-lineup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageBase64: base64,
+        mediaType: file.type || 'image/jpeg'
+      })
+    });
+
+    var data = await response.json();
+
+    if (!response.ok || data.error) throw new Error(data.error || 'Server error');
+
+    var players = data.players;
+
+    if (!Array.isArray(players) || players.length === 0) {
+      status.innerHTML = '⚠️ No players found. Try a clearer photo or add manually below.';
+      return;
+    }
+
+    teamScannedPlayersList = players;
+    status.style.color = 'var(--green)';
+    status.innerHTML = '✅ Found <strong>' + players.length + ' player' + (players.length > 1 ? 's' : '') + '</strong> — review below';
+
+    // Render scanned list
+    var container = document.getElementById('teamScannedPlayers');
+    container.innerHTML = '';
+    players.forEach(function(p, i){
+      var row = document.createElement('div');
+      row.id = 'tsp-' + i;
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;margin-bottom:5px;';
+      var numLabel = p.num ? '<div style="font-size:11px;color:var(--gray);">#' + escapeHtml(p.num) + (p.pos ? ' · ' + escapeHtml(p.pos) : '') + '</div>' : (p.pos ? '<div style="font-size:11px;color:var(--gray);">' + escapeHtml(p.pos) + '</div>' : '');
+      row.innerHTML =
+        '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:15px;font-weight:800;color:var(--accent);width:28px;text-align:center;">' + (i + 1) + '</div>' +
+        '<div style="flex:1;">' +
+          '<div style="font-size:14px;font-weight:600;">' + escapeHtml(p.name || '—') + '</div>' +
+          numLabel +
+        '</div>' +
+        '<button onclick="removeTeamScanned(' + i + ')" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:0 4px;">✕</button>';
+      container.appendChild(row);
+    });
+
+    document.getElementById('teamScannedList').style.display = 'block';
+
+  } catch (err) {
+    status.innerHTML = '⚠️ Scan failed — try a clearer photo or add players manually.';
+    status.style.color = 'var(--red)';
+    console.error('Team roster scan error:', err);
+  }
+
+  // Reset file input so same photo can be retried
+  event.target.value = '';
+}
+
+function removeTeamScanned(idx) {
+  teamScannedPlayersList[idx] = null;
+  var row = document.getElementById('tsp-' + idx);
+  if (row) row.style.opacity = '0.3';
+}
+
+function confirmScannedPlayersForTeam() {
+  var valid = teamScannedPlayersList.filter(Boolean);
+  if (valid.length === 0) { showToast('No players to add'); return; }
+
+  // Push into the team-editor draft roster (whatever the scan returns)
+  valid.forEach(function(p){
+    _teamEditorRosterDraft.push({
+      name: p.name || '',
+      num: p.num || '',
+      pos: p.pos || '',
+      age: (p.age != null ? p.age : null)
+    });
+  });
+
+  // Re-render the editor roster list
+  renderTeamEditorRoster();
+  showToast(valid.length + ' player' + (valid.length > 1 ? 's' : '') + ' added to roster');
+
+  // Reset scan UI
+  teamScannedPlayersList = [];
+  document.getElementById('teamScannedList').style.display = 'none';
+  document.getElementById('teamScanStatus').style.display = 'none';
+  document.getElementById('teamScannedPlayers').innerHTML = '';
 }
 
 // ══════════════════════════════════════════════
