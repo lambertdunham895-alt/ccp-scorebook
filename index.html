@@ -2091,7 +2091,11 @@ function ccpInitSync(){
     CCP_TEAM_ID = p.get('team_id') || null;
     CCP_EVENT_ID = p.get('event_id') || null;
     if(!CCP_TEAM_ID || !CCP_EVENT_ID) return false;
-    if(typeof supabase === 'undefined' || !supabase.createClient) return false;
+    if(typeof supabase === 'undefined' || !supabase.createClient) {
+      // Supabase library not yet loaded — retry shortly
+      setTimeout(ccpInitSync, 100);
+      return false;
+    }
     CCP_SUPABASE = supabase.createClient(
       'https://hcadlkmejdekhbgfvyaq.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjYWRsa21lamRla2hiZ2Z2eWFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4OTg1MjIsImV4cCI6MjA4ODQ3NDUyMn0.PlHlQX5b5ts7SnXd7hWfuWi01Y_aK6QnWvzZPVb54Ko'
@@ -2168,13 +2172,45 @@ var CCP_ROSTER = []; // [{id, name, number, position}]
 var CCP_TEAM_NAME = '';
 
 function ccpShowRosterPanel(){
+  // Read params directly in case ccpInitSync hasn't run yet
+  if(!CCP_TEAM_ID || !CCP_EVENT_ID){
+    var p = new URLSearchParams(window.location.search);
+    CCP_TEAM_ID = p.get('team_id') || null;
+    CCP_EVENT_ID = p.get('event_id') || null;
+  }
   if(!CCP_TEAM_ID || !CCP_EVENT_ID) return;
   var panel = document.getElementById('ccpRosterPanel');
   if(panel) panel.style.display = 'block';
-  ccpFetchRoster();
+  // Auto-open the setup modal so the coach immediately sees the panel
+  // Only auto-open if this is a fresh game (no innings played yet)
+  try {
+    var hasGameProgress = false;
+    if(typeof G !== 'undefined' && G){
+      var homeRuns = (G.homeCells||[]).some(function(row){return row && row.some(function(c){return c && (c.scored || c.rbi);});});
+      var awayRuns = (G.awayCells||[]).some(function(row){return row && row.some(function(c){return c && (c.scored || c.rbi);});});
+      hasGameProgress = homeRuns || awayRuns;
+    }
+    if(!hasGameProgress && typeof openSetupModal === 'function'){
+      // Small delay to ensure the page has finished rendering
+      setTimeout(function(){ openSetupModal(); }, 200);
+    }
+  } catch(e){}
+  // Retry fetch if Supabase isn't ready yet
+  if(!CCP_SUPABASE){
+    setTimeout(ccpFetchRoster, 300);
+  } else {
+    ccpFetchRoster();
+  }
 }
 
 function ccpFetchRoster(){
+  if(!CCP_SUPABASE){
+    // Try to init now if it didn't run yet
+    if(!ccpInitSync()){
+      setTimeout(ccpFetchRoster, 300);
+      return;
+    }
+  }
   if(!CCP_SUPABASE || !CCP_TEAM_ID) return;
   CCP_SUPABASE.from('teams').select('name').eq('id', CCP_TEAM_ID).maybeSingle().then(function(res){
     if(res && res.data) {
