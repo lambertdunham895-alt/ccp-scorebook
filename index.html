@@ -2293,6 +2293,113 @@ function ccpSaveLineupMap(){
   }, function(){});
 }
 
+// ══════════════════════════════════════════════
+//  PER-PLAYER STATS COMPUTATION & SYNC
+// ══════════════════════════════════════════════
+
+// Compute batting stats from a single player's row of at-bat cells.
+// Returns {at_bats, hits, singles, doubles, triples, home_runs, runs_scored, rbis, walks, strikeouts, hbp, sac_fly}
+function ccpComputeBattingStats(cells){
+  var s = {
+    at_bats:0, hits:0, singles:0, doubles:0, triples:0, home_runs:0,
+    runs_scored:0, rbis:0, walks:0, strikeouts:0, hbp:0, sac_fly:0,
+    stolen_bases:0
+  };
+  if(!cells || !cells.length) return s;
+  // The "result" codes from the scorebook:
+  // 1B/2B/3B/HR = hit (counts as AB)
+  // BB = walk (no AB)
+  // HBP = hit by pitch (no AB)
+  // K, Kl = strikeout (counts as AB)
+  // GO, FO, fO, LO, DP, FC = out at bat (counts as AB)
+  // E = error (counts as AB but not a hit)
+  // SAC = sacrifice bunt (no AB)
+  // SF = sacrifice fly (no AB, counts SF)
+  // SB, WP, PB, BK, CS = runner-only events (skip)
+  cells.forEach(function(cell){
+    if(!cell || !cell.result) return;
+    var r = cell.result;
+    // Stats counted regardless
+    if(cell.scored) s.runs_scored += 1;
+    if(typeof cell.rbi === 'number') s.rbis += cell.rbi;
+    // Result-specific
+    switch(r){
+      case '1B': s.at_bats++; s.hits++; s.singles++; break;
+      case '2B': s.at_bats++; s.hits++; s.doubles++; break;
+      case '3B': s.at_bats++; s.hits++; s.triples++; break;
+      case 'HR': s.at_bats++; s.hits++; s.home_runs++; break;
+      case 'BB': s.walks++; break;
+      case 'HBP': s.hbp++; break;
+      case 'K':
+      case 'Kl': s.at_bats++; s.strikeouts++; break;
+      case 'GO':
+      case 'FO':
+      case 'fO':
+      case 'LO':
+      case 'DP':
+      case 'FC': s.at_bats++; break;
+      case 'E':  s.at_bats++; break;
+      case 'SAC': break; // sac bunt — no AB, no stat tracked here
+      case 'SF':  s.sac_fly++; break;
+      case 'SB':  s.stolen_bases++; break;
+      // Other runner events: WP, PB, BK, CS — no batter stat
+    }
+  });
+  return s;
+}
+
+var CCP_STAT_TIMER = null;
+function ccpQueueStatsSave(){
+  if(CCP_STAT_TIMER) clearTimeout(CCP_STAT_TIMER);
+  CCP_STAT_TIMER = setTimeout(ccpSaveAllPlayerStats, 800);
+}
+
+function ccpSaveAllPlayerStats(){
+  if(!CCP_SUPABASE || !CCP_TEAM_ID || !CCP_EVENT_ID) return;
+  if(!G || !G.homeLineup || G.homeLineup.length === 0) return;
+  var rows = [];
+  G.homeLineup.forEach(function(p, idx){
+    if(!p.ccpPlayerId) return; // only sync players linked to CCP
+    var cells = (G.homeCells||[])[idx] || [];
+    var stats = ccpComputeBattingStats(cells);
+    rows.push({
+      id: CCP_EVENT_ID + '_' + p.ccpPlayerId,
+      team_id: CCP_TEAM_ID,
+      event_id: CCP_EVENT_ID,
+      player_id: p.ccpPlayerId,
+      player_name: p.name || '',
+      at_bats: stats.at_bats,
+      hits: stats.hits,
+      singles: stats.singles,
+      doubles: stats.doubles,
+      triples: stats.triples,
+      home_runs: stats.home_runs,
+      runs_scored: stats.runs_scored,
+      rbis: stats.rbis,
+      walks: stats.walks,
+      strikeouts: stats.strikeouts,
+      hbp: stats.hbp,
+      sac_fly: stats.sac_fly,
+      stolen_bases: stats.stolen_bases,
+      at_bat_log: cells.filter(function(c){ return c && c.result; }).map(function(c){
+        return {result:c.result, scored:!!c.scored, rbi:c.rbi||0, baseTo:c.baseTo||null};
+      }),
+      updated_at: new Date().toISOString()
+    });
+  });
+  if(rows.length === 0) return;
+  CCP_SUPABASE.from('player_game_stats').upsert(rows, {onConflict:'event_id,player_id'}).then(function(){}, function(err){
+    console.error('Stats save failed', err);
+  });
+}
+
+// Hook the persist function (already chained for game_scores) to also sync stats
+var _origPersist2 = persist;
+persist = function(){
+  _origPersist2();
+  ccpQueueStatsSave();
+};
+
 // Try to show roster panel as soon as DOM is ready
 if(document.readyState === 'loading'){
   document.addEventListener('DOMContentLoaded', ccpShowRosterPanel);
