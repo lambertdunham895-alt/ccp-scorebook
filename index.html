@@ -701,6 +701,19 @@ select.form-input{appearance:none;}
     <div class="modal-handle"></div>
     <div class="modal-title">⚙ Game Setup</div>
 
+    <!-- CoachConnect Pro Roster Panel (shows only when launched from CCP) -->
+    <div id="ccpRosterPanel" style="display:none;background:linear-gradient(135deg,rgba(245,166,35,0.12),rgba(245,166,35,0.04));border:1px solid rgba(245,166,35,0.4);border-radius:12px;padding:14px 16px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-size:18px;">⚾</span>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:1.5px;color:var(--gold);text-transform:uppercase;">Connected to CoachConnect Pro</div>
+      </div>
+      <div id="ccpRosterStatus" style="font-size:12px;color:var(--gray);line-height:1.5;margin-bottom:10px;">Loading your roster...</div>
+      <button id="ccpLoadTeamBtn" class="btn btn-primary" style="width:100%;padding:10px 14px;display:none;" onclick="ccpLoadMyTeam()">
+        <span style="font-size:14px;">⬇</span> Load My Team Lineup
+      </button>
+      <div id="ccpRosterLoaded" style="display:none;font-size:12px;color:var(--gold);text-align:center;padding:6px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:1px;text-transform:uppercase;">✓ Lineup loaded — stats will sync to parents</div>
+    </div>
+
     <!-- Home Team -->
     <div class="form-group">
       <label class="form-label">Home Team</label>
@@ -2147,6 +2160,109 @@ persist = function(){
 };
 
 ccpInitSync();
+
+// ══════════════════════════════════════════════
+//  CCP ROSTER LOADING (Phase 2: per-player stats)
+// ══════════════════════════════════════════════
+var CCP_ROSTER = []; // [{id, name, number, position}]
+var CCP_TEAM_NAME = '';
+
+function ccpShowRosterPanel(){
+  if(!CCP_TEAM_ID || !CCP_EVENT_ID) return;
+  var panel = document.getElementById('ccpRosterPanel');
+  if(panel) panel.style.display = 'block';
+  ccpFetchRoster();
+}
+
+function ccpFetchRoster(){
+  if(!CCP_SUPABASE || !CCP_TEAM_ID) return;
+  CCP_SUPABASE.from('teams').select('name').eq('id', CCP_TEAM_ID).maybeSingle().then(function(res){
+    if(res && res.data) {
+      CCP_TEAM_NAME = res.data.name || '';
+      // Auto-fill home team name if it's still default
+      var setupHomeEl = document.getElementById('setupHome');
+      if(setupHomeEl && (setupHomeEl.value === 'Home Team' || !setupHomeEl.value)) {
+        setupHomeEl.value = CCP_TEAM_NAME;
+        if(typeof G !== 'undefined') G.homeName = CCP_TEAM_NAME;
+      }
+    }
+  }, function(){});
+  
+  CCP_SUPABASE.from('players').select('id, name, number, position').eq('team_id', CCP_TEAM_ID).order('number').then(function(res){
+    var statusEl = document.getElementById('ccpRosterStatus');
+    var btnEl = document.getElementById('ccpLoadTeamBtn');
+    if(res && res.data && res.data.length > 0){
+      CCP_ROSTER = res.data;
+      if(statusEl) statusEl.innerHTML = '<strong style="color:#fff;">' + (CCP_TEAM_NAME || 'Your team') + '</strong> — ' + res.data.length + ' players ready to load';
+      if(btnEl) btnEl.style.display = 'block';
+    } else {
+      if(statusEl) statusEl.innerHTML = 'No players found in your roster. Add players in CoachConnect Pro first.';
+    }
+  }, function(err){
+    var statusEl = document.getElementById('ccpRosterStatus');
+    if(statusEl) statusEl.innerHTML = 'Could not load roster. You can still score this game manually.';
+  });
+}
+
+function ccpLoadMyTeam(){
+  if(CCP_ROSTER.length === 0) return;
+  // Replace home lineup with CCP roster
+  G.homeLineup = CCP_ROSTER.map(function(p){
+    return {
+      name: p.name || '',
+      num: p.number || '',
+      pos: p.position || '',
+      ccpPlayerId: p.id  // ← The link to CoachConnect Pro
+    };
+  });
+  // Reset cells to match new lineup size
+  G.homeCells = CCP_ROSTER.map(function(){ return Array(G.totalInnings || 7).fill(null); });
+  if(CCP_TEAM_NAME){
+    G.homeName = CCP_TEAM_NAME;
+    var el = document.getElementById('setupHome');
+    if(el) el.value = CCP_TEAM_NAME;
+  }
+  // Save lineup mapping to Supabase
+  ccpSaveLineupMap();
+  // Hide button, show loaded message
+  var btn = document.getElementById('ccpLoadTeamBtn');
+  var loaded = document.getElementById('ccpRosterLoaded');
+  if(btn) btn.style.display = 'none';
+  if(loaded) loaded.style.display = 'block';
+  persist();
+  if(typeof renderAll === 'function') renderAll();
+  if(typeof showToast === 'function') showToast(CCP_ROSTER.length + ' players loaded');
+}
+
+function ccpSaveLineupMap(){
+  if(!CCP_SUPABASE || !CCP_TEAM_ID || !CCP_EVENT_ID) return;
+  // Delete old mapping for home side first
+  CCP_SUPABASE.from('scorebook_lineup_map').delete().eq('event_id', CCP_EVENT_ID).eq('side', 'home').then(function(){
+    // Insert fresh mapping
+    var rows = G.homeLineup.map(function(p, idx){
+      return {
+        id: CCP_EVENT_ID + '_home_' + idx,
+        team_id: CCP_TEAM_ID,
+        event_id: CCP_EVENT_ID,
+        side: 'home',
+        lineup_index: idx,
+        player_id: p.ccpPlayerId || null,
+        player_name: p.name || '',
+        jersey_number: p.num || ''
+      };
+    });
+    if(rows.length > 0){
+      CCP_SUPABASE.from('scorebook_lineup_map').insert(rows).then(function(){}, function(){});
+    }
+  }, function(){});
+}
+
+// Try to show roster panel as soon as DOM is ready
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', ccpShowRosterPanel);
+} else {
+  setTimeout(ccpShowRosterPanel, 50);
+}
 
 function ensureCells(){
   const n=G.totalInnings;
