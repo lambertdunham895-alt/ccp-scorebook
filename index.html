@@ -210,8 +210,13 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .pos-pick:active{transform:scale(.91);}
 .pos-pick.sel{border-color:var(--accent);background:rgba(245,166,35,.15);color:var(--white);box-shadow:0 0 8px rgba(245,166,35,.2);}
 select.form-input{appearance:none;}
-.player-row{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;margin-bottom:6px;transition:background .15s;}
+.player-row{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;margin-bottom:6px;transition:background .15s, transform .18s, box-shadow .18s, opacity .18s;}
 .player-row.batting-now{border-color:var(--accent);background:rgba(245,166,35,.06);}
+.player-row.dragging{opacity:.92;transform:scale(1.02);box-shadow:0 12px 32px rgba(0,0,0,.6),0 0 0 2px var(--gold);background:var(--card2);z-index:50;position:relative;cursor:grabbing;}
+.player-row.drop-target{border-top:3px solid var(--gold);margin-top:-2px;}
+.drag-handle{flex-shrink:0;display:flex;align-items:center;justify-content:center;width:28px;height:36px;color:var(--gray);cursor:grab;touch-action:none;font-size:18px;line-height:1;user-select:none;-webkit-user-select:none;border-radius:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);}
+.drag-handle:active{cursor:grabbing;background:rgba(245,166,35,.15);color:var(--gold);}
+.drag-handle.long-press-active{background:rgba(245,166,35,.25);color:var(--gold);transform:scale(1.1);}
 .bat-num{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--accent);width:22px;text-align:center;}
 .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .section-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;}
@@ -3482,6 +3487,164 @@ function movePlayerInLineup(team, idx, direction){
   }
 }
 
+// ══════════════════════════════════════════════
+//  DRAG-TO-REORDER — touch + mouse
+// ══════════════════════════════════════════════
+var DRAG_STATE = null; // {team, fromIdx, currentIdx, rowEl, longPressTimer, startY, lastY, originalRect}
+
+function attachDragHandlers(handle, team, idx){
+  if(!handle) return;
+  // Touch
+  handle.addEventListener('touchstart', function(e){
+    e.preventDefault();
+    startDragLongPress(e.touches[0].clientY, handle, team, idx);
+  }, {passive:false});
+  handle.addEventListener('touchmove', function(e){
+    if(DRAG_STATE && DRAG_STATE.active){
+      e.preventDefault();
+      handleDragMove(e.touches[0].clientY);
+    } else if(DRAG_STATE && !DRAG_STATE.active){
+      // Cancel long press if moved before activation
+      var dy = Math.abs(e.touches[0].clientY - DRAG_STATE.startY);
+      if(dy > 8) cancelDrag();
+    }
+  }, {passive:false});
+  handle.addEventListener('touchend', function(e){
+    e.preventDefault();
+    endDrag();
+  });
+  handle.addEventListener('touchcancel', function(){ cancelDrag(); });
+  // Mouse (desktop)
+  handle.addEventListener('mousedown', function(e){
+    e.preventDefault();
+    startDragLongPress(e.clientY, handle, team, idx);
+  });
+}
+
+function startDragLongPress(clientY, handle, team, idx){
+  cancelDrag(); // clear any prior state
+  var row = handle.closest('.player-row');
+  if(!row) return;
+  DRAG_STATE = {
+    team: team,
+    fromIdx: idx,
+    currentIdx: idx,
+    rowEl: row,
+    handle: handle,
+    startY: clientY,
+    lastY: clientY,
+    active: false,
+    longPressTimer: null,
+    originalRect: row.getBoundingClientRect(),
+  };
+  // Long-press timer (250ms)
+  DRAG_STATE.longPressTimer = setTimeout(function(){
+    if(!DRAG_STATE) return;
+    DRAG_STATE.active = true;
+    handle.classList.add('long-press-active');
+    row.classList.add('dragging');
+    if(navigator.vibrate) try{ navigator.vibrate(15); }catch(e){}
+    // Attach window-level move/end so drag continues even if finger leaves the handle
+    document.addEventListener('mousemove', onWindowMouseMove);
+    document.addEventListener('mouseup', onWindowMouseUp);
+  }, 250);
+}
+
+function onWindowMouseMove(e){
+  if(DRAG_STATE && DRAG_STATE.active) handleDragMove(e.clientY);
+}
+function onWindowMouseUp(){ endDrag(); }
+
+function handleDragMove(clientY){
+  if(!DRAG_STATE || !DRAG_STATE.active) return;
+  var dy = clientY - DRAG_STATE.startY;
+  DRAG_STATE.lastY = clientY;
+  // Visually shift the dragged row
+  DRAG_STATE.rowEl.style.transform = 'translateY(' + dy + 'px) scale(1.02)';
+  // Find which sibling we'd drop above
+  var siblings = Array.from(DRAG_STATE.rowEl.parentElement.querySelectorAll('.player-row[data-team="' + DRAG_STATE.team + '"]'));
+  var newIdx = DRAG_STATE.fromIdx;
+  // Clear all drop-target highlights
+  siblings.forEach(function(s){ s.classList.remove('drop-target'); });
+  for(var i=0;i<siblings.length;i++){
+    var sib = siblings[i];
+    if(sib === DRAG_STATE.rowEl) continue;
+    var rect = sib.getBoundingClientRect();
+    var midY = rect.top + rect.height/2;
+    if(clientY < midY){
+      newIdx = i;
+      // Adjust if the dragged row was above this sibling
+      if(DRAG_STATE.fromIdx < i) newIdx = i - 1;
+      sib.classList.add('drop-target');
+      break;
+    }
+    // If we got past the last sibling, drop at end
+    if(i === siblings.length - 1){
+      newIdx = siblings.length - 1;
+    }
+  }
+  DRAG_STATE.currentIdx = newIdx;
+}
+
+function endDrag(){
+  if(!DRAG_STATE) return;
+  if(DRAG_STATE.longPressTimer) clearTimeout(DRAG_STATE.longPressTimer);
+  document.removeEventListener('mousemove', onWindowMouseMove);
+  document.removeEventListener('mouseup', onWindowMouseUp);
+  if(DRAG_STATE.active && DRAG_STATE.fromIdx !== DRAG_STATE.currentIdx){
+    // Perform the reorder
+    var team = DRAG_STATE.team;
+    var lineup = team==='home' ? G.homeLineup : G.awayLineup;
+    var cells = team==='home' ? G.homeCells : G.awayCells;
+    var fromIdx = DRAG_STATE.fromIdx;
+    var toIdx = Math.max(0, Math.min(lineup.length - 1, DRAG_STATE.currentIdx));
+    // Move player
+    var movedPlayer = lineup.splice(fromIdx, 1)[0];
+    lineup.splice(toIdx, 0, movedPlayer);
+    // Move cells too (so stats stay with player)
+    var movedCells = cells.splice(fromIdx, 1)[0];
+    cells.splice(toIdx, 0, movedCells);
+    // Update batter index if it was the dragged player or we crossed it
+    var batterKey = team==='home' ? 'homeBatterIdx' : 'awayBatterIdx';
+    if(G[batterKey] === fromIdx){
+      G[batterKey] = toIdx;
+    } else if(fromIdx < G[batterKey] && G[batterKey] <= toIdx){
+      G[batterKey]--;
+    } else if(toIdx <= G[batterKey] && G[batterKey] < fromIdx){
+      G[batterKey]++;
+    }
+    persist();
+    // Sync to CCP if connected
+    if(typeof ccpSaveLineupMap === 'function' && CCP_TEAM_ID && CCP_EVENT_ID){
+      var sideForMap = CCP_SIDE;
+      CCP_SIDE = team;
+      ccpSaveLineupMap();
+      CCP_SIDE = sideForMap;
+    }
+    DRAG_STATE = null;
+    renderLineupPage();
+    renderScorecard();
+    if(typeof showToast === 'function') showToast('Lineup updated');
+  } else {
+    cancelDrag();
+  }
+}
+
+function cancelDrag(){
+  if(!DRAG_STATE) return;
+  if(DRAG_STATE.longPressTimer) clearTimeout(DRAG_STATE.longPressTimer);
+  document.removeEventListener('mousemove', onWindowMouseMove);
+  document.removeEventListener('mouseup', onWindowMouseUp);
+  if(DRAG_STATE.handle) DRAG_STATE.handle.classList.remove('long-press-active');
+  if(DRAG_STATE.rowEl){
+    DRAG_STATE.rowEl.classList.remove('dragging');
+    DRAG_STATE.rowEl.style.transform = '';
+    var siblings = DRAG_STATE.rowEl.parentElement.querySelectorAll('.player-row');
+    siblings.forEach(function(s){ s.classList.remove('drop-target'); });
+  }
+  DRAG_STATE = null;
+}
+
 function confirmDeletePlayer(){
   const modal=document.getElementById('deleteConfirmModal');
   const team=modal.dataset.team;
@@ -3587,13 +3750,10 @@ function renderLineupPage(){
       const row=document.createElement('div');row.className='player-row';
       const posDisplay = pl.pos ? pl.pos : '—';
       const posColor = pl.pos ? 'var(--accent)' : 'var(--gray)';
-      const isFirst = i === 0;
-      const isLast = i === lineup.length - 1;
+      row.dataset.team = team;
+      row.dataset.idx = i;
       row.innerHTML=`<div class="bat-num">${i+1}</div>
-        <div style="display:flex;flex-direction:column;gap:1px;margin-right:6px;flex-shrink:0;">
-          <button class="up-btn" data-team="${team}" data-idx="${i}" ${isFirst?'disabled':''} style="background:${isFirst?'transparent':'rgba(255,255,255,.06)'};border:1px solid ${isFirst?'rgba(255,255,255,.06)':'rgba(255,255,255,.15)'};border-radius:5px;padding:1px 6px;color:${isFirst?'rgba(255,255,255,.15)':'var(--gray)'};font-size:11px;cursor:${isFirst?'default':'pointer'};line-height:1;">▲</button>
-          <button class="down-btn" data-team="${team}" data-idx="${i}" ${isLast?'disabled':''} style="background:${isLast?'transparent':'rgba(255,255,255,.06)'};border:1px solid ${isLast?'rgba(255,255,255,.06)':'rgba(255,255,255,.15)'};border-radius:5px;padding:1px 6px;color:${isLast?'rgba(255,255,255,.15)':'var(--gray)'};font-size:11px;cursor:${isLast?'default':'pointer'};line-height:1;">▼</button>
-        </div>
+        <div class="drag-handle" data-team="${team}" data-idx="${i}" title="Drag to reorder">≡</div>
         <div style="flex:1;"><div style="font-size:13px;font-weight:600;">${pl.name}${pl.num?' <span style="color:var(--gray);font-size:11px;">#'+pl.num+'</span>':''}</div></div>
         <button class="pos-btn" data-team="${team}" data-idx="${i}" style="flex-shrink:0;background:rgba(245,166,35,.1);border:1.5px solid ${posColor};border-radius:6px;padding:6px 10px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;color:${posColor};cursor:pointer;min-width:44px;margin-right:6px;">${posDisplay}</button>
         <button class="btn btn-sm btn-danger del-btn" data-team="${team}" data-idx="${i}" style="flex-shrink:0;">✕</button>`;
@@ -3605,20 +3765,8 @@ function renderLineupPage(){
         e.stopPropagation();
         openPositionPicker(this.dataset.team, parseInt(this.dataset.idx));
       });
-      var upBtn = row.querySelector('.up-btn');
-      if(upBtn && !isFirst){
-        upBtn.addEventListener('click', function(e){
-          e.stopPropagation();
-          movePlayerInLineup(this.dataset.team, parseInt(this.dataset.idx), -1);
-        });
-      }
-      var downBtn = row.querySelector('.down-btn');
-      if(downBtn && !isLast){
-        downBtn.addEventListener('click', function(e){
-          e.stopPropagation();
-          movePlayerInLineup(this.dataset.team, parseInt(this.dataset.idx), 1);
-        });
-      }
+      // Attach drag handlers to the handle
+      attachDragHandlers(row.querySelector('.drag-handle'), team, i);
       sec.appendChild(row);
     });
     wrap.appendChild(sec);
