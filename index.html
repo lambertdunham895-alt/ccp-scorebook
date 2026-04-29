@@ -2238,13 +2238,30 @@ function ccpFetchRoster(){
     var statusEl = document.getElementById('ccpRosterStatus');
     var btnEl = document.getElementById('ccpLoadTeamBtn');
     var sideToggleEl = document.getElementById('ccpSideToggle');
+    var loadedEl = document.getElementById('ccpRosterLoaded');
+    var hintEl = document.getElementById('ccpLineupSourceHint');
     if(res && res.data && res.data.length > 0){
       CCP_ROSTER = res.data;
-      if(statusEl) statusEl.innerHTML = '<strong style="color:#fff;">' + (CCP_TEAM_NAME || 'Your team') + '</strong> — ' + res.data.length + ' players ready to load';
-      if(sideToggleEl) sideToggleEl.style.display = 'block';
-      if(btnEl) btnEl.style.display = 'block';
-      // Try to fetch the saved CCP batting order for this game
-      ccpFetchGameLineup();
+      // Check if this team is already loaded into either home or away lineup
+      var alreadyLoadedSide = ccpDetectLoadedSide();
+      if(alreadyLoadedSide){
+        // Team already loaded — show "already loaded" state instead of the load button
+        if(statusEl) statusEl.innerHTML = '<strong style="color:#fff;">' + (CCP_TEAM_NAME || 'Your team') + '</strong> already loaded as ' + alreadyLoadedSide.toUpperCase() + ' team';
+        if(btnEl) btnEl.style.display = 'none';
+        if(sideToggleEl) sideToggleEl.style.display = 'none';
+        if(hintEl) hintEl.style.display = 'none';
+        if(loadedEl) {
+          loadedEl.style.display = 'block';
+          loadedEl.textContent = '✓ Lineup loaded — stats syncing to parents';
+        }
+      } else {
+        if(statusEl) statusEl.innerHTML = '<strong style="color:#fff;">' + (CCP_TEAM_NAME || 'Your team') + '</strong> — ' + res.data.length + ' players ready to load';
+        if(sideToggleEl) sideToggleEl.style.display = 'block';
+        if(btnEl) btnEl.style.display = 'block';
+        if(loadedEl) loadedEl.style.display = 'none';
+        // Try to fetch the saved CCP batting order for this game
+        ccpFetchGameLineup();
+      }
     } else {
       if(statusEl) statusEl.innerHTML = 'No players found in your roster. Add players in CoachConnect Pro first.';
     }
@@ -2252,6 +2269,25 @@ function ccpFetchRoster(){
     var statusEl = document.getElementById('ccpRosterStatus');
     if(statusEl) statusEl.innerHTML = 'Could not load roster. You can still score this game manually.';
   });
+}
+
+// Returns 'home' or 'away' if the CCP team's roster is already in that lineup, else null
+function ccpDetectLoadedSide(){
+  if(!CCP_ROSTER || CCP_ROSTER.length === 0) return null;
+  if(!G) return null;
+  var ccpIds = {};
+  CCP_ROSTER.forEach(function(p){ ccpIds[p.id] = true; });
+  function lineupHasCcpPlayers(lineup){
+    if(!lineup || lineup.length === 0) return false;
+    // Considered "loaded" if ANY player has a ccpPlayerId matching this team
+    for(var i=0; i<lineup.length; i++){
+      if(lineup[i] && lineup[i].ccpPlayerId && ccpIds[lineup[i].ccpPlayerId]) return true;
+    }
+    return false;
+  }
+  if(lineupHasCcpPlayers(G.homeLineup)) return 'home';
+  if(lineupHasCcpPlayers(G.awayLineup)) return 'away';
+  return null;
 }
 
 // Fetch any pre-set batting order from CoachConnect Pro for this game
