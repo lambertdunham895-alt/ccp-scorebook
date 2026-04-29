@@ -2352,6 +2352,30 @@ function ccpLoadMyTeam(){
   
   ccpSaveLineupMap();
   
+  // Also register this team in the scorebook's local team library, deduped
+  try {
+    if (typeof G.teams === 'undefined' || !G.teams) G.teams = [];
+    // Look for existing entry with this CCP team_id (to avoid duplicates)
+    var existingIdx = G.teams.findIndex(function(t){ return t && t.ccpTeamId === CCP_TEAM_ID; });
+    var teamObj = {
+      id: existingIdx >= 0 ? G.teams[existingIdx].id : ('ccp_' + CCP_TEAM_ID),
+      ccpTeamId: CCP_TEAM_ID,
+      name: CCP_TEAM_NAME || 'Your Team',
+      isMyTeam: true,
+      color: '#f5a623',
+      roster: lineupArr.map(function(p){ return {name:p.name,num:p.num,pos:p.pos,ccpPlayerId:p.ccpPlayerId}; }),
+      createdAt: existingIdx >= 0 ? G.teams[existingIdx].createdAt : new Date().toISOString(),
+      lastUsedAt: new Date().toISOString()
+    };
+    if (existingIdx >= 0) {
+      G.teams[existingIdx] = teamObj;
+    } else {
+      G.teams.push(teamObj);
+    }
+    if (CCP_SIDE === 'away') G.awayTeamId = teamObj.id;
+    else G.homeTeamId = teamObj.id;
+  } catch(e) {}
+  
   // Update UI
   var btn = document.getElementById('ccpLoadTeamBtn');
   var loaded = document.getElementById('ccpRosterLoaded');
