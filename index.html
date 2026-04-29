@@ -708,9 +708,20 @@ select.form-input{appearance:none;}
         <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:1.5px;color:var(--gold);text-transform:uppercase;">Connected to CoachConnect Pro</div>
       </div>
       <div id="ccpRosterStatus" style="font-size:12px;color:var(--gray);line-height:1.5;margin-bottom:10px;">Loading your roster...</div>
+      
+      <!-- Home/Away toggle -->
+      <div id="ccpSideToggle" style="display:none;margin-bottom:10px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;color:var(--gray);text-transform:uppercase;margin-bottom:6px;">My team is:</div>
+        <div style="display:flex;gap:6px;">
+          <button id="ccpSideHome" onclick="ccpSetSide('home')" style="flex:1;padding:9px 0;border-radius:8px;background:rgba(245,166,35,0.25);border:1px solid rgba(245,166,35,0.6);color:var(--gold);font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;">🏠 Home</button>
+          <button id="ccpSideAway" onclick="ccpSetSide('away')" style="flex:1;padding:9px 0;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:var(--gray);font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;">✈ Away</button>
+        </div>
+      </div>
+      
       <button id="ccpLoadTeamBtn" class="btn btn-primary" style="width:100%;padding:10px 14px;display:none;" onclick="ccpLoadMyTeam()">
         <span style="font-size:14px;">⬇</span> Load My Team Lineup
       </button>
+      <div id="ccpLineupSourceHint" style="display:none;font-size:11px;color:var(--gray);text-align:center;padding:8px 6px 0;line-height:1.4;font-style:italic;"></div>
       <div id="ccpRosterLoaded" style="display:none;font-size:12px;color:var(--gold);text-align:center;padding:6px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:1px;text-transform:uppercase;">✓ Lineup loaded — stats will sync to parents</div>
     </div>
 
@@ -2215,22 +2226,20 @@ function ccpFetchRoster(){
   CCP_SUPABASE.from('teams').select('name').eq('id', CCP_TEAM_ID).maybeSingle().then(function(res){
     if(res && res.data) {
       CCP_TEAM_NAME = res.data.name || '';
-      // Auto-fill home team name if it's still default
-      var setupHomeEl = document.getElementById('setupHome');
-      if(setupHomeEl && (setupHomeEl.value === 'Home Team' || !setupHomeEl.value)) {
-        setupHomeEl.value = CCP_TEAM_NAME;
-        if(typeof G !== 'undefined') G.homeName = CCP_TEAM_NAME;
-      }
     }
   }, function(){});
   
   CCP_SUPABASE.from('players').select('id, name, number, position').eq('team_id', CCP_TEAM_ID).order('number').then(function(res){
     var statusEl = document.getElementById('ccpRosterStatus');
     var btnEl = document.getElementById('ccpLoadTeamBtn');
+    var sideToggleEl = document.getElementById('ccpSideToggle');
     if(res && res.data && res.data.length > 0){
       CCP_ROSTER = res.data;
       if(statusEl) statusEl.innerHTML = '<strong style="color:#fff;">' + (CCP_TEAM_NAME || 'Your team') + '</strong> — ' + res.data.length + ' players ready to load';
+      if(sideToggleEl) sideToggleEl.style.display = 'block';
       if(btnEl) btnEl.style.display = 'block';
+      // Try to fetch the saved CCP batting order for this game
+      ccpFetchGameLineup();
     } else {
       if(statusEl) statusEl.innerHTML = 'No players found in your roster. Add players in CoachConnect Pro first.';
     }
@@ -2240,47 +2249,138 @@ function ccpFetchRoster(){
   });
 }
 
+// Fetch any pre-set batting order from CoachConnect Pro for this game
+var CCP_GAME_LINEUP = null; // [playerId, playerId, ...] in batting order
+function ccpFetchGameLineup(){
+  if(!CCP_SUPABASE || !CCP_EVENT_ID) return;
+  CCP_SUPABASE.from('lineups').select('batting').eq('event_id', CCP_EVENT_ID).maybeSingle().then(function(res){
+    var hintEl = document.getElementById('ccpLineupSourceHint');
+    if(res && res.data && res.data.batting && res.data.batting.length > 0){
+      CCP_GAME_LINEUP = res.data.batting.filter(function(id){ return id; });
+      if(hintEl){
+        hintEl.style.display = 'block';
+        hintEl.textContent = '✓ Using your saved batting order from CoachConnect Pro';
+      }
+    } else {
+      if(hintEl){
+        hintEl.style.display = 'block';
+        hintEl.textContent = 'ℹ Using roster order — you can reorder in the lineup view';
+      }
+    }
+  }, function(){});
+}
+
+// Side selection (home or away)
+var CCP_SIDE = 'home';
+function ccpSetSide(side){
+  CCP_SIDE = side;
+  var homeBtn = document.getElementById('ccpSideHome');
+  var awayBtn = document.getElementById('ccpSideAway');
+  if(homeBtn && awayBtn){
+    if(side === 'home'){
+      homeBtn.style.background = 'rgba(245,166,35,0.25)';
+      homeBtn.style.borderColor = 'rgba(245,166,35,0.6)';
+      homeBtn.style.color = 'var(--gold)';
+      awayBtn.style.background = 'transparent';
+      awayBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+      awayBtn.style.color = 'var(--gray)';
+    } else {
+      awayBtn.style.background = 'rgba(245,166,35,0.25)';
+      awayBtn.style.borderColor = 'rgba(245,166,35,0.6)';
+      awayBtn.style.color = 'var(--gold)';
+      homeBtn.style.background = 'transparent';
+      homeBtn.style.borderColor = 'rgba(255,255,255,0.15)';
+      homeBtn.style.color = 'var(--gray)';
+    }
+  }
+}
+
 function ccpLoadMyTeam(){
   if(CCP_ROSTER.length === 0) return;
-  // Replace home lineup with CCP roster
-  G.homeLineup = CCP_ROSTER.map(function(p){
+  
+  // Build the lineup in the right order
+  var orderedRoster;
+  if(CCP_GAME_LINEUP && CCP_GAME_LINEUP.length > 0){
+    // Use the CCP batting order: map each batting slot to the player
+    var rosterById = {};
+    CCP_ROSTER.forEach(function(p){ rosterById[p.id] = p; });
+    var ordered = [];
+    var usedIds = {};
+    CCP_GAME_LINEUP.forEach(function(pid){
+      if(rosterById[pid] && !usedIds[pid]){
+        ordered.push(rosterById[pid]);
+        usedIds[pid] = true;
+      }
+    });
+    // Append any roster players not in the batting order (bench/extras)
+    CCP_ROSTER.forEach(function(p){
+      if(!usedIds[p.id]) ordered.push(p);
+    });
+    orderedRoster = ordered;
+  } else {
+    orderedRoster = CCP_ROSTER;
+  }
+  
+  var lineupArr = orderedRoster.map(function(p){
     return {
       name: p.name || '',
       num: p.number || '',
       pos: p.position || '',
-      ccpPlayerId: p.id  // ← The link to CoachConnect Pro
+      ccpPlayerId: p.id
     };
   });
-  // Reset cells to match new lineup size
-  G.homeCells = CCP_ROSTER.map(function(){ return Array(G.totalInnings || 7).fill(null); });
-  if(CCP_TEAM_NAME){
-    G.homeName = CCP_TEAM_NAME;
-    var el = document.getElementById('setupHome');
-    if(el) el.value = CCP_TEAM_NAME;
+  var cellsArr = orderedRoster.map(function(){ return Array(G.totalInnings || 7).fill(null); });
+  
+  // Apply to selected side
+  if(CCP_SIDE === 'away'){
+    G.awayLineup = lineupArr;
+    G.awayCells = cellsArr;
+    if(CCP_TEAM_NAME){
+      G.awayName = CCP_TEAM_NAME;
+      var el = document.getElementById('setupAway');
+      if(el) el.value = CCP_TEAM_NAME;
+    }
+  } else {
+    G.homeLineup = lineupArr;
+    G.homeCells = cellsArr;
+    if(CCP_TEAM_NAME){
+      G.homeName = CCP_TEAM_NAME;
+      var el = document.getElementById('setupHome');
+      if(el) el.value = CCP_TEAM_NAME;
+    }
   }
-  // Save lineup mapping to Supabase
+  
   ccpSaveLineupMap();
-  // Hide button, show loaded message
+  
+  // Update UI
   var btn = document.getElementById('ccpLoadTeamBtn');
   var loaded = document.getElementById('ccpRosterLoaded');
+  var sideToggle = document.getElementById('ccpSideToggle');
+  var hint = document.getElementById('ccpLineupSourceHint');
   if(btn) btn.style.display = 'none';
-  if(loaded) loaded.style.display = 'block';
+  if(sideToggle) sideToggle.style.display = 'none';
+  if(hint) hint.style.display = 'none';
+  if(loaded) {
+    loaded.style.display = 'block';
+    loaded.textContent = '✓ ' + lineupArr.length + ' players loaded as ' + (CCP_SIDE === 'away' ? 'AWAY' : 'HOME') + ' team';
+  }
+  
   persist();
   if(typeof renderAll === 'function') renderAll();
-  if(typeof showToast === 'function') showToast(CCP_ROSTER.length + ' players loaded');
+  if(typeof showToast === 'function') showToast(lineupArr.length + ' players loaded');
 }
 
 function ccpSaveLineupMap(){
   if(!CCP_SUPABASE || !CCP_TEAM_ID || !CCP_EVENT_ID) return;
-  // Delete old mapping for home side first
-  CCP_SUPABASE.from('scorebook_lineup_map').delete().eq('event_id', CCP_EVENT_ID).eq('side', 'home').then(function(){
-    // Insert fresh mapping
-    var rows = G.homeLineup.map(function(p, idx){
+  var lineup = (CCP_SIDE === 'away') ? G.awayLineup : G.homeLineup;
+  // Delete old mapping for THIS side first
+  CCP_SUPABASE.from('scorebook_lineup_map').delete().eq('event_id', CCP_EVENT_ID).eq('side', CCP_SIDE).then(function(){
+    var rows = lineup.map(function(p, idx){
       return {
-        id: CCP_EVENT_ID + '_home_' + idx,
+        id: CCP_EVENT_ID + '_' + CCP_SIDE + '_' + idx,
         team_id: CCP_TEAM_ID,
         event_id: CCP_EVENT_ID,
-        side: 'home',
+        side: CCP_SIDE,
         lineup_index: idx,
         player_id: p.ccpPlayerId || null,
         player_name: p.name || '',
@@ -2356,37 +2456,44 @@ function ccpQueueStatsSave(){
 
 function ccpSaveAllPlayerStats(){
   if(!CCP_SUPABASE || !CCP_TEAM_ID || !CCP_EVENT_ID) return;
-  if(!G || !G.homeLineup || G.homeLineup.length === 0) return;
+  if(!G) return;
+  // Save stats for whichever side has players linked to CCP
+  // (it's possible both sides could be linked in the future)
   var rows = [];
-  G.homeLineup.forEach(function(p, idx){
-    if(!p.ccpPlayerId) return; // only sync players linked to CCP
-    var cells = (G.homeCells||[])[idx] || [];
-    var stats = ccpComputeBattingStats(cells);
-    rows.push({
-      id: CCP_EVENT_ID + '_' + p.ccpPlayerId,
-      team_id: CCP_TEAM_ID,
-      event_id: CCP_EVENT_ID,
-      player_id: p.ccpPlayerId,
-      player_name: p.name || '',
-      at_bats: stats.at_bats,
-      hits: stats.hits,
-      singles: stats.singles,
-      doubles: stats.doubles,
-      triples: stats.triples,
-      home_runs: stats.home_runs,
-      runs_scored: stats.runs_scored,
-      rbis: stats.rbis,
-      walks: stats.walks,
-      strikeouts: stats.strikeouts,
-      hbp: stats.hbp,
-      sac_fly: stats.sac_fly,
-      stolen_bases: stats.stolen_bases,
-      at_bat_log: cells.filter(function(c){ return c && c.result; }).map(function(c){
-        return {result:c.result, scored:!!c.scored, rbi:c.rbi||0, baseTo:c.baseTo||null};
-      }),
-      updated_at: new Date().toISOString()
+  function pushStatsFor(lineup, cells){
+    if(!lineup || !lineup.length) return;
+    lineup.forEach(function(p, idx){
+      if(!p.ccpPlayerId) return;
+      var playerCells = (cells||[])[idx] || [];
+      var stats = ccpComputeBattingStats(playerCells);
+      rows.push({
+        id: CCP_EVENT_ID + '_' + p.ccpPlayerId,
+        team_id: CCP_TEAM_ID,
+        event_id: CCP_EVENT_ID,
+        player_id: p.ccpPlayerId,
+        player_name: p.name || '',
+        at_bats: stats.at_bats,
+        hits: stats.hits,
+        singles: stats.singles,
+        doubles: stats.doubles,
+        triples: stats.triples,
+        home_runs: stats.home_runs,
+        runs_scored: stats.runs_scored,
+        rbis: stats.rbis,
+        walks: stats.walks,
+        strikeouts: stats.strikeouts,
+        hbp: stats.hbp,
+        sac_fly: stats.sac_fly,
+        stolen_bases: stats.stolen_bases,
+        at_bat_log: playerCells.filter(function(c){ return c && c.result; }).map(function(c){
+          return {result:c.result, scored:!!c.scored, rbi:c.rbi||0, baseTo:c.baseTo||null};
+        }),
+        updated_at: new Date().toISOString()
+      });
     });
-  });
+  }
+  pushStatsFor(G.homeLineup, G.homeCells);
+  pushStatsFor(G.awayLineup, G.awayCells);
   if(rows.length === 0) return;
   CCP_SUPABASE.from('player_game_stats').upsert(rows, {onConflict:'event_id,player_id'}).then(function(){}, function(err){
     console.error('Stats save failed', err);
@@ -3317,6 +3424,40 @@ function removePlayerFromLineup(team,idx){
   document.getElementById('deleteConfirmModal').dataset.idx=idx;
 }
 
+// Move a player up (-1) or down (+1) in the batting order
+function movePlayerInLineup(team, idx, direction){
+  const lineup = team==='home' ? G.homeLineup : G.awayLineup;
+  const cells = team==='home' ? G.homeCells : G.awayCells;
+  const newIdx = idx + direction;
+  if(newIdx < 0 || newIdx >= lineup.length) return;
+  // Swap lineup entries
+  const tmpPlayer = lineup[idx];
+  lineup[idx] = lineup[newIdx];
+  lineup[newIdx] = tmpPlayer;
+  // Swap cells too so stats stay with the right player
+  const tmpCells = cells[idx];
+  cells[idx] = cells[newIdx];
+  cells[newIdx] = tmpCells;
+  // Update current batter index if affected
+  if(team==='home'){
+    if(G.homeBatterIdx === idx) G.homeBatterIdx = newIdx;
+    else if(G.homeBatterIdx === newIdx) G.homeBatterIdx = idx;
+  } else {
+    if(G.awayBatterIdx === idx) G.awayBatterIdx = newIdx;
+    else if(G.awayBatterIdx === newIdx) G.awayBatterIdx = idx;
+  }
+  persist();
+  renderLineupPage();
+  renderScorecard();
+  // Update CCP lineup mapping if we have one
+  if(typeof ccpSaveLineupMap === 'function' && CCP_TEAM_ID && CCP_EVENT_ID){
+    var sideForMap = CCP_SIDE;
+    CCP_SIDE = team; // temporarily set so the save targets the right side
+    ccpSaveLineupMap();
+    CCP_SIDE = sideForMap;
+  }
+}
+
 function confirmDeletePlayer(){
   const modal=document.getElementById('deleteConfirmModal');
   const team=modal.dataset.team;
@@ -3422,7 +3563,13 @@ function renderLineupPage(){
       const row=document.createElement('div');row.className='player-row';
       const posDisplay = pl.pos ? pl.pos : '—';
       const posColor = pl.pos ? 'var(--accent)' : 'var(--gray)';
+      const isFirst = i === 0;
+      const isLast = i === lineup.length - 1;
       row.innerHTML=`<div class="bat-num">${i+1}</div>
+        <div style="display:flex;flex-direction:column;gap:1px;margin-right:6px;flex-shrink:0;">
+          <button class="up-btn" data-team="${team}" data-idx="${i}" ${isFirst?'disabled':''} style="background:${isFirst?'transparent':'rgba(255,255,255,.06)'};border:1px solid ${isFirst?'rgba(255,255,255,.06)':'rgba(255,255,255,.15)'};border-radius:5px;padding:1px 6px;color:${isFirst?'rgba(255,255,255,.15)':'var(--gray)'};font-size:11px;cursor:${isFirst?'default':'pointer'};line-height:1;">▲</button>
+          <button class="down-btn" data-team="${team}" data-idx="${i}" ${isLast?'disabled':''} style="background:${isLast?'transparent':'rgba(255,255,255,.06)'};border:1px solid ${isLast?'rgba(255,255,255,.06)':'rgba(255,255,255,.15)'};border-radius:5px;padding:1px 6px;color:${isLast?'rgba(255,255,255,.15)':'var(--gray)'};font-size:11px;cursor:${isLast?'default':'pointer'};line-height:1;">▼</button>
+        </div>
         <div style="flex:1;"><div style="font-size:13px;font-weight:600;">${pl.name}${pl.num?' <span style="color:var(--gray);font-size:11px;">#'+pl.num+'</span>':''}</div></div>
         <button class="pos-btn" data-team="${team}" data-idx="${i}" style="flex-shrink:0;background:rgba(245,166,35,.1);border:1.5px solid ${posColor};border-radius:6px;padding:6px 10px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;color:${posColor};cursor:pointer;min-width:44px;margin-right:6px;">${posDisplay}</button>
         <button class="btn btn-sm btn-danger del-btn" data-team="${team}" data-idx="${i}" style="flex-shrink:0;">✕</button>`;
@@ -3434,6 +3581,20 @@ function renderLineupPage(){
         e.stopPropagation();
         openPositionPicker(this.dataset.team, parseInt(this.dataset.idx));
       });
+      var upBtn = row.querySelector('.up-btn');
+      if(upBtn && !isFirst){
+        upBtn.addEventListener('click', function(e){
+          e.stopPropagation();
+          movePlayerInLineup(this.dataset.team, parseInt(this.dataset.idx), -1);
+        });
+      }
+      var downBtn = row.querySelector('.down-btn');
+      if(downBtn && !isLast){
+        downBtn.addEventListener('click', function(e){
+          e.stopPropagation();
+          movePlayerInLineup(this.dataset.team, parseInt(this.dataset.idx), 1);
+        });
+      }
       sec.appendChild(row);
     });
     wrap.appendChild(sec);
