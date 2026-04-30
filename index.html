@@ -2334,6 +2334,8 @@ function ccpSetSide(side){
       homeBtn.style.color = 'var(--gray)';
     }
   }
+  // Update the MY team / OPPONENT labels to match the new side
+  if(typeof refreshSaveNewLabels === 'function') refreshSaveNewLabels();
 }
 
 function ccpLoadMyTeam(){
@@ -3351,13 +3353,16 @@ function onSetupTeamSelectChange(side) {
 }
 
 function refreshSaveNewLabels() {
+  // Figure out which side is "my team" — defaults to home, but if scorebook is connected
+  // to CCP and the coach picked away, flip it.
+  var mySide = (typeof CCP_SIDE !== 'undefined' && CCP_SIDE) ? CCP_SIDE : 'home';
   ['home','away'].forEach(function(side){
     const sel = document.getElementById('setup' + (side==='home'?'Home':'Away') + 'Select');
     const lbl = document.getElementById('setup' + (side==='home'?'Home':'Away') + 'SaveNewLabel');
     const saveCheck = document.getElementById('setup' + (side==='home'?'Home':'Away') + 'SaveNew');
     if (!sel || !lbl) return;
     if (sel.value === '__free__') {
-      lbl.textContent = side === 'home' ? 'Save as new MY team' : 'Save as new OPPONENT';
+      lbl.textContent = side === mySide ? 'Save as new MY team' : 'Save as new OPPONENT';
       saveCheck.disabled = false;
     } else {
       lbl.textContent = 'Save as new team in library';
