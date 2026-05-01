@@ -210,10 +210,12 @@ body::before{content:'';position:fixed;inset:0;background-image:url("data:image/
 .pos-pick:active{transform:scale(.91);}
 .pos-pick.sel{border-color:var(--accent);background:rgba(245,166,35,.15);color:var(--white);box-shadow:0 0 8px rgba(245,166,35,.2);}
 select.form-input{appearance:none;}
-.player-row{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;margin-bottom:6px;transition:background .15s, transform .18s, box-shadow .18s, opacity .18s;}
+.player-row{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;margin-bottom:6px;transition:transform .22s cubic-bezier(.2,.8,.2,1), background .15s, box-shadow .18s, opacity .18s;will-change:transform;}
 .player-row.batting-now{border-color:var(--accent);background:rgba(245,166,35,.06);}
-.player-row.dragging{opacity:.92;transform:scale(1.02);box-shadow:0 12px 32px rgba(0,0,0,.6),0 0 0 2px var(--gold);background:var(--card2);z-index:50;position:relative;cursor:grabbing;}
-.player-row.drop-target{border-top:3px solid var(--gold);margin-top:-2px;}
+.player-row.dragging{opacity:1;transform:scale(1.04);box-shadow:0 16px 40px rgba(0,0,0,.7),0 0 0 2px var(--gold),0 0 24px rgba(245,166,35,.3);background:#1a2a3a;z-index:50;position:relative;cursor:grabbing;transition:transform .12s ease-out, box-shadow .15s ease-out;}
+.player-row.shifted-down{transform:translateY(56px);}
+.player-row.shifted-up{transform:translateY(-56px);}
+.player-row.snapping-back{transition:transform .28s cubic-bezier(.2,.8,.2,1) !important;}
 .drag-handle{flex-shrink:0;display:flex;align-items:center;justify-content:center;width:28px;height:36px;color:var(--gray);cursor:grab;touch-action:none;font-size:18px;line-height:1;user-select:none;-webkit-user-select:none;border-radius:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);}
 .drag-handle:active{cursor:grabbing;background:rgba(245,166,35,.15);color:var(--gold);}
 .drag-handle.long-press-active{background:rgba(245,166,35,.25);color:var(--gold);transform:scale(1.1);}
@@ -3653,9 +3655,10 @@ function movePlayerInLineup(team, idx, direction){
 }
 
 // ══════════════════════════════════════════════
-//  DRAG-TO-REORDER — touch + mouse
+//  DRAG-TO-REORDER — touch + mouse, with live shifting
 // ══════════════════════════════════════════════
-var DRAG_STATE = null; // {team, fromIdx, currentIdx, rowEl, longPressTimer, startY, lastY, originalRect}
+var DRAG_STATE = null;
+var DRAG_ROW_HEIGHT = 56; // updated dynamically once we measure
 
 function attachDragHandlers(handle, team, idx){
   if(!handle) return;
@@ -3687,22 +3690,30 @@ function attachDragHandlers(handle, team, idx){
 }
 
 function startDragLongPress(clientY, handle, team, idx){
-  cancelDrag(); // clear any prior state
+  cancelDrag();
   var row = handle.closest('.player-row');
   if(!row) return;
+  // Get all sibling rows (only same-team) so we can shift them live
+  var allRows = Array.from(row.parentElement.querySelectorAll('.player-row[data-team="' + team + '"]'));
+  // Measure actual row height (including margin) for accurate shifting
+  if(allRows.length > 1){
+    var firstRect = allRows[0].getBoundingClientRect();
+    var secondRect = allRows[1].getBoundingClientRect();
+    DRAG_ROW_HEIGHT = secondRect.top - firstRect.top; // includes the 6px margin-bottom
+  }
   DRAG_STATE = {
     team: team,
     fromIdx: idx,
     currentIdx: idx,
     rowEl: row,
     handle: handle,
+    siblings: allRows,
     startY: clientY,
     lastY: clientY,
     active: false,
     longPressTimer: null,
-    originalRect: row.getBoundingClientRect(),
   };
-  // Long-press timer (250ms)
+  // Long-press timer (200ms — slightly faster than before)
   DRAG_STATE.longPressTimer = setTimeout(function(){
     if(!DRAG_STATE) return;
     DRAG_STATE.active = true;
@@ -3712,7 +3723,7 @@ function startDragLongPress(clientY, handle, team, idx){
     // Attach window-level move/end so drag continues even if finger leaves the handle
     document.addEventListener('mousemove', onWindowMouseMove);
     document.addEventListener('mouseup', onWindowMouseUp);
-  }, 250);
+  }, 200);
 }
 
 function onWindowMouseMove(e){
@@ -3724,31 +3735,32 @@ function handleDragMove(clientY){
   if(!DRAG_STATE || !DRAG_STATE.active) return;
   var dy = clientY - DRAG_STATE.startY;
   DRAG_STATE.lastY = clientY;
-  // Visually shift the dragged row
-  DRAG_STATE.rowEl.style.transform = 'translateY(' + dy + 'px) scale(1.02)';
-  // Find which sibling we'd drop above
-  var siblings = Array.from(DRAG_STATE.rowEl.parentElement.querySelectorAll('.player-row[data-team="' + DRAG_STATE.team + '"]'));
-  var newIdx = DRAG_STATE.fromIdx;
-  // Clear all drop-target highlights
-  siblings.forEach(function(s){ s.classList.remove('drop-target'); });
-  for(var i=0;i<siblings.length;i++){
-    var sib = siblings[i];
-    if(sib === DRAG_STATE.rowEl) continue;
-    var rect = sib.getBoundingClientRect();
-    var midY = rect.top + rect.height/2;
-    if(clientY < midY){
-      newIdx = i;
-      // Adjust if the dragged row was above this sibling
-      if(DRAG_STATE.fromIdx < i) newIdx = i - 1;
-      sib.classList.add('drop-target');
-      break;
-    }
-    // If we got past the last sibling, drop at end
-    if(i === siblings.length - 1){
-      newIdx = siblings.length - 1;
-    }
+  
+  // The dragged row follows the finger directly (no transition during drag)
+  DRAG_STATE.rowEl.style.transition = 'transform .12s ease-out, box-shadow .15s ease-out';
+  DRAG_STATE.rowEl.style.transform = 'translateY(' + dy + 'px) scale(1.04)';
+  
+  // Calculate new index based on how many row-heights we've moved
+  var rh = DRAG_ROW_HEIGHT || 56;
+  var indexShift = Math.round(dy / rh);
+  var newIdx = Math.max(0, Math.min(DRAG_STATE.siblings.length - 1, DRAG_STATE.fromIdx + indexShift));
+  
+  if(newIdx !== DRAG_STATE.currentIdx){
+    DRAG_STATE.currentIdx = newIdx;
+    // Shift other rows to make room — this is the magic
+    DRAG_STATE.siblings.forEach(function(sib, i){
+      if(sib === DRAG_STATE.rowEl) return;
+      sib.classList.remove('shifted-down','shifted-up');
+      // If the dragged item is moving DOWN past this sibling, shift sibling UP
+      if(DRAG_STATE.fromIdx < newIdx && i > DRAG_STATE.fromIdx && i <= newIdx){
+        sib.classList.add('shifted-up');
+      }
+      // If the dragged item is moving UP past this sibling, shift sibling DOWN
+      else if(DRAG_STATE.fromIdx > newIdx && i < DRAG_STATE.fromIdx && i >= newIdx){
+        sib.classList.add('shifted-down');
+      }
+    });
   }
-  DRAG_STATE.currentIdx = newIdx;
 }
 
 function endDrag(){
@@ -3756,40 +3768,65 @@ function endDrag(){
   if(DRAG_STATE.longPressTimer) clearTimeout(DRAG_STATE.longPressTimer);
   document.removeEventListener('mousemove', onWindowMouseMove);
   document.removeEventListener('mouseup', onWindowMouseUp);
+  
   if(DRAG_STATE.active && DRAG_STATE.fromIdx !== DRAG_STATE.currentIdx){
-    // Perform the reorder
+    // Smooth visual snap to final position before re-rendering
     var team = DRAG_STATE.team;
-    var lineup = team==='home' ? G.homeLineup : G.awayLineup;
-    var cells = team==='home' ? G.homeCells : G.awayCells;
     var fromIdx = DRAG_STATE.fromIdx;
-    var toIdx = Math.max(0, Math.min(lineup.length - 1, DRAG_STATE.currentIdx));
-    // Move player
-    var movedPlayer = lineup.splice(fromIdx, 1)[0];
-    lineup.splice(toIdx, 0, movedPlayer);
-    // Move cells too (so stats stay with player)
-    var movedCells = cells.splice(fromIdx, 1)[0];
-    cells.splice(toIdx, 0, movedCells);
-    // Update batter index if it was the dragged player or we crossed it
-    var batterKey = team==='home' ? 'homeBatterIdx' : 'awayBatterIdx';
-    if(G[batterKey] === fromIdx){
-      G[batterKey] = toIdx;
-    } else if(fromIdx < G[batterKey] && G[batterKey] <= toIdx){
-      G[batterKey]--;
-    } else if(toIdx <= G[batterKey] && G[batterKey] < fromIdx){
-      G[batterKey]++;
-    }
-    persist();
-    // Sync to CCP if connected
-    if(typeof ccpSaveLineupMap === 'function' && CCP_TEAM_ID && CCP_EVENT_ID){
-      var sideForMap = CCP_SIDE;
-      CCP_SIDE = team;
-      ccpSaveLineupMap();
-      CCP_SIDE = sideForMap;
-    }
-    DRAG_STATE = null;
-    renderLineupPage();
-    renderScorecard();
-    if(typeof showToast === 'function') showToast('Lineup updated');
+    var toIdx = DRAG_STATE.currentIdx;
+    var rh = DRAG_ROW_HEIGHT || 56;
+    var finalDy = (toIdx - fromIdx) * rh;
+    
+    // Animate the dragged row to its final slot
+    DRAG_STATE.rowEl.classList.add('snapping-back');
+    DRAG_STATE.rowEl.classList.remove('dragging');
+    DRAG_STATE.rowEl.style.transform = 'translateY(' + finalDy + 'px) scale(1)';
+    DRAG_STATE.rowEl.style.boxShadow = '';
+    
+    var rowToCleanup = DRAG_STATE.rowEl;
+    var siblingsToCleanup = DRAG_STATE.siblings;
+    
+    // After animation completes, do the actual data reorder + re-render
+    setTimeout(function(){
+      var lineup = team==='home' ? G.homeLineup : G.awayLineup;
+      var cells = team==='home' ? G.homeCells : G.awayCells;
+      var safeToIdx = Math.max(0, Math.min(lineup.length - 1, toIdx));
+      // Move player
+      var movedPlayer = lineup.splice(fromIdx, 1)[0];
+      lineup.splice(safeToIdx, 0, movedPlayer);
+      // Move cells too (so stats stay with player)
+      var movedCells = cells.splice(fromIdx, 1)[0];
+      cells.splice(safeToIdx, 0, movedCells);
+      // Update batter index
+      var batterKey = team==='home' ? 'homeBatterIdx' : 'awayBatterIdx';
+      if(G[batterKey] === fromIdx){
+        G[batterKey] = safeToIdx;
+      } else if(fromIdx < G[batterKey] && G[batterKey] <= safeToIdx){
+        G[batterKey]--;
+      } else if(safeToIdx <= G[batterKey] && G[batterKey] < fromIdx){
+        G[batterKey]++;
+      }
+      // Clean up styles before re-render
+      if(rowToCleanup){
+        rowToCleanup.classList.remove('snapping-back','dragging');
+        rowToCleanup.style.transform = '';
+        rowToCleanup.style.boxShadow = '';
+      }
+      siblingsToCleanup.forEach(function(s){ s.classList.remove('shifted-up','shifted-down'); });
+      
+      persist();
+      // Sync to CCP if connected
+      if(typeof ccpSaveLineupMap === 'function' && CCP_TEAM_ID && CCP_EVENT_ID){
+        var sideForMap = CCP_SIDE;
+        CCP_SIDE = team;
+        ccpSaveLineupMap();
+        CCP_SIDE = sideForMap;
+      }
+      DRAG_STATE = null;
+      renderLineupPage();
+      renderScorecard();
+      if(typeof showToast === 'function') showToast('Lineup updated');
+    }, 280); // matches .snapping-back transition duration
   } else {
     cancelDrag();
   }
@@ -3801,11 +3838,19 @@ function cancelDrag(){
   document.removeEventListener('mousemove', onWindowMouseMove);
   document.removeEventListener('mouseup', onWindowMouseUp);
   if(DRAG_STATE.handle) DRAG_STATE.handle.classList.remove('long-press-active');
+  // Animate back to start with snap-back transition
   if(DRAG_STATE.rowEl){
+    DRAG_STATE.rowEl.classList.add('snapping-back');
     DRAG_STATE.rowEl.classList.remove('dragging');
     DRAG_STATE.rowEl.style.transform = '';
-    var siblings = DRAG_STATE.rowEl.parentElement.querySelectorAll('.player-row');
-    siblings.forEach(function(s){ s.classList.remove('drop-target'); });
+    DRAG_STATE.rowEl.style.boxShadow = '';
+    var rowEl = DRAG_STATE.rowEl;
+    setTimeout(function(){
+      if(rowEl) rowEl.classList.remove('snapping-back');
+    }, 300);
+  }
+  if(DRAG_STATE.siblings){
+    DRAG_STATE.siblings.forEach(function(s){ s.classList.remove('shifted-up','shifted-down'); });
   }
   DRAG_STATE = null;
 }
