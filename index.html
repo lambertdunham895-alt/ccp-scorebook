@@ -2228,6 +2228,8 @@ function ccpFetchRoster(){
     }
   }
   if(!CCP_SUPABASE || !CCP_TEAM_ID) return;
+  // Load saved teams from cloud (for cross-device persistence)
+  if(!CCP_TEAMS_LOADED) ccpLoadSavedTeamsFromCloud();
   CCP_SUPABASE.from('teams').select('name').eq('id', CCP_TEAM_ID).maybeSingle().then(function(res){
     if(res && res.data) {
       CCP_TEAM_NAME = res.data.name || '';
@@ -2514,6 +2516,128 @@ function ccpComputeBattingStats(cells){
   });
   return s;
 }
+
+// ══════════════════════════════════════════════
+//  SAVED TEAMS CLOUD SYNC (persists across devices and force-closes)
+// ══════════════════════════════════════════════
+var CCP_TEAMS_LOADED = false;
+var CCP_TEAMS_SAVE_TIMER = null;
+
+// Pull saved teams from Supabase and merge into G.teams
+function ccpLoadSavedTeamsFromCloud(){
+  if(!CCP_SUPABASE || !CCP_TEAM_ID) return;
+  CCP_SUPABASE.from('scorebook_saved_teams').select('*').eq('ccp_team_id', CCP_TEAM_ID).then(function(res){
+    if(!res || !res.data) return;
+    if(typeof G === 'undefined' || !G) return;
+    if(!G.teams) G.teams = [];
+    var existingIds = {};
+    G.teams.forEach(function(t){ if(t && t.id) existingIds[t.id] = true; });
+    var added = 0;
+    res.data.forEach(function(row){
+      if(!row.team_data) return;
+      var t = row.team_data;
+      if(!t.id) t.id = row.id;
+      // If we already have this team locally, replace with the cloud version (cloud wins on conflict)
+      var idx = G.teams.findIndex(function(x){ return x && x.id === t.id; });
+      if(idx >= 0){
+        G.teams[idx] = t;
+      } else {
+        G.teams.push(t);
+        added++;
+      }
+    });
+    CCP_TEAMS_LOADED = true;
+    if(added > 0){
+      persist();
+      // Re-render teams list if it's open
+      if(typeof renderTeamsList === 'function'){
+        try { renderTeamsList(); } catch(e){}
+      }
+    }
+  }, function(){});
+}
+
+// Push the entire G.teams array to Supabase (debounced)
+function ccpQueueTeamsSync(){
+  if(!CCP_SUPABASE || !CCP_TEAM_ID) return;
+  if(CCP_TEAMS_SAVE_TIMER) clearTimeout(CCP_TEAMS_SAVE_TIMER);
+  CCP_TEAMS_SAVE_TIMER = setTimeout(ccpSyncTeamsToCloud, 800);
+}
+
+function ccpSyncTeamsToCloud(){
+  if(!CCP_SUPABASE || !CCP_TEAM_ID) return;
+  if(!G || !G.teams) return;
+  // Upsert all current teams. We don't delete anything here — that's handled by ccpDeleteTeamFromCloud.
+  var rows = G.teams.map(function(t){
+    return {
+      id: t.id,
+      ccp_team_id: CCP_TEAM_ID,
+      team_data: t,
+      ccp_player_team_id: t.ccpTeamId || null,
+      is_my_team: !!t.isMyTeam,
+      updated_at: new Date().toISOString()
+    };
+  });
+  if(rows.length === 0) return;
+  CCP_SUPABASE.from('scorebook_saved_teams').upsert(rows, {onConflict:'id'}).then(function(){}, function(err){
+    console.error('Teams sync failed', err);
+  });
+}
+
+// Delete a single team from Supabase (called by deleteTeam)
+function ccpDeleteTeamFromCloud(teamId){
+  if(!CCP_SUPABASE || !CCP_TEAM_ID || !teamId) return;
+  CCP_SUPABASE.from('scorebook_saved_teams').delete().eq('id', teamId).eq('ccp_team_id', CCP_TEAM_ID).then(function(){}, function(){});
+}
+
+// Hook into addTeam, updateTeam, and deleteTeam to auto-sync.
+// We wrap them after they're defined.
+(function(){
+  function setupTeamHooks(){
+    if(typeof addTeam === 'function' && !addTeam._ccpHooked){
+      var _origAdd = addTeam;
+      window.addTeam = function(){
+        var result = _origAdd.apply(this, arguments);
+        ccpQueueTeamsSync();
+        return result;
+      };
+      window.addTeam._ccpHooked = true;
+    }
+    if(typeof updateTeam === 'function' && !updateTeam._ccpHooked){
+      var _origUpdate = updateTeam;
+      window.updateTeam = function(){
+        var result = _origUpdate.apply(this, arguments);
+        ccpQueueTeamsSync();
+        return result;
+      };
+      window.updateTeam._ccpHooked = true;
+    }
+    if(typeof deleteTeam === 'function' && !deleteTeam._ccpHooked){
+      var _origDelete = deleteTeam;
+      window.deleteTeam = function(id){
+        var result = _origDelete.apply(this, arguments);
+        if(result) ccpDeleteTeamFromCloud(id);
+        return result;
+      };
+      window.deleteTeam._ccpHooked = true;
+    }
+    if(typeof touchTeam === 'function' && !touchTeam._ccpHooked){
+      var _origTouch = touchTeam;
+      window.touchTeam = function(){
+        var result = _origTouch.apply(this, arguments);
+        ccpQueueTeamsSync();
+        return result;
+      };
+      window.touchTeam._ccpHooked = true;
+    }
+  }
+  // Hooks need to run after all the team functions are defined
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', setupTeamHooks);
+  } else {
+    setTimeout(setupTeamHooks, 50);
+  }
+})();
 
 var CCP_STAT_TIMER = null;
 function ccpQueueStatsSave(){
