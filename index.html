@@ -2232,13 +2232,13 @@ function ccpFetchRoster(){
   if(!CCP_SUPABASE || !CCP_TEAM_ID) return;
   // Load saved teams from cloud (for cross-device persistence)
   if(!CCP_TEAMS_LOADED) ccpLoadSavedTeamsFromCloud();
-  CCP_SUPABASE.from('teams').select('name').eq('id', CCP_TEAM_ID).maybeSingle().then(function(res){
+  CCP_SUPABASE.from('scorebook_teams_public').select('name').eq('id', CCP_TEAM_ID).maybeSingle().then(function(res){
     if(res && res.data) {
       CCP_TEAM_NAME = res.data.name || '';
     }
   }, function(){});
   
-  CCP_SUPABASE.from('players').select('id, name, number, position').eq('team_id', CCP_TEAM_ID).order('number').then(function(res){
+  CCP_SUPABASE.from('scorebook_roster_public').select('id, name, number, position').eq('team_id', CCP_TEAM_ID).order('number').then(function(res){
     var statusEl = document.getElementById('ccpRosterStatus');
     var btnEl = document.getElementById('ccpLoadTeamBtn');
     var sideToggleEl = document.getElementById('ccpSideToggle');
