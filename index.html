@@ -2124,8 +2124,8 @@ function ccpInitSync(){
 
 function ccpComputeScore(){
   try {
-    var homeR = G.homeCells.reduce(function(t,row){return t + row.filter(function(c){return c && c.scored;}).length + row.reduce(function(s,c){return s + (c && c.rbi ? c.rbi : 0);}, 0);}, 0);
-    var awayR = G.awayCells.reduce(function(t,row){return t + row.filter(function(c){return c && c.scored;}).length + row.reduce(function(s,c){return s + (c && c.rbi ? c.rbi : 0);}, 0);}, 0);
+    var homeR = G.homeCells.reduce(function(t,row){return t + row.filter(function(c){return c && c.scored;}).length + row.reduce(function(s,c){return s + (c && c.rbi ? (c.result==='HR' ? Math.max(0,c.rbi-1) : c.rbi) : 0);}, 0);}, 0);
+    var awayR = G.awayCells.reduce(function(t,row){return t + row.filter(function(c){return c && c.scored;}).length + row.reduce(function(s,c){return s + (c && c.rbi ? (c.result==='HR' ? Math.max(0,c.rbi-1) : c.rbi) : 0);}, 0);}, 0);
     return {home:homeR, away:awayR};
   } catch(e){ return {home:0, away:0}; }
 }
@@ -2772,7 +2772,14 @@ function recalcBanner(){
 function totalRuns(team){
   const cells=team==='home'?G.homeCells:G.awayCells;
   let r=0;
-  cells.forEach(row=>row.forEach(c=>{if(!c)return;if(c.scored)r++;if(c.rbi)r+=c.rbi;}));
+  cells.forEach(row=>row.forEach(c=>{
+    if(!c)return;
+    if(c.scored)r++;                              // batter scored
+    if(c.rbi){
+      // On a HR, rbi includes the batter himself — subtract 1 to avoid double count
+      r += c.result==='HR' ? Math.max(0,c.rbi-1) : c.rbi;
+    }
+  }));
   return r;
 }
 
@@ -2881,7 +2888,7 @@ function renderInningTotalsRow(tbl,team,n){
   let total=0;
   for(let i=0;i<n;i++){
     let r=0;
-    if(cells)cells.forEach(pr=>{ if(pr&&pr[i]){const c=pr[i];if(c.scored)r++;if(c.rbi)r+=c.rbi;} });
+    if(cells)cells.forEach(pr=>{ if(pr&&pr[i]){const c=pr[i];if(c.scored)r++;if(c.rbi)r+=(c.result==='HR'?Math.max(0,c.rbi-1):c.rbi);} });
     total+=r;
     const td=document.createElement('td');td.style.cssText='background:#0d1e36;padding:4px;text-align:center;font-family:Share Tech Mono,monospace;font-size:13px;font-weight:700;border-top:1px solid rgba(255,255,255,.2);color:'+(r?'var(--accent)':'rgba(255,255,255,0.2)')+';';
     td.textContent=r||'·';row.appendChild(td);
@@ -4012,8 +4019,8 @@ function clearLog(){if(!confirm('Clear play log?'))return;G.playLog=[];persist()
 // ══════════════════════════════════════════════
 function saveGame(){
   if(!G.savedGames)G.savedGames=[];
-  const homeR=G.homeCells.reduce((t,row)=>t+row.filter(c=>c&&c.scored).length+row.reduce((s,c)=>s+(c&&c.rbi?c.rbi:0),0),0);
-  const awayR=G.awayCells.reduce((t,row)=>t+row.filter(c=>c&&c.scored).length+row.reduce((s,c)=>s+(c&&c.rbi?c.rbi:0),0),0);
+  const homeR=G.homeCells.reduce((t,row)=>t+row.filter(c=>c&&c.scored).length+row.reduce((s,c)=>s+(c&&c.rbi?(c.result==='HR'?Math.max(0,c.rbi-1):c.rbi):0),0),0);
+  const awayR=G.awayCells.reduce((t,row)=>t+row.filter(c=>c&&c.scored).length+row.reduce((s,c)=>s+(c&&c.rbi?(c.result==='HR'?Math.max(0,c.rbi-1):c.rbi):0),0),0);
   G.savedGames.push({
     homeName:G.homeName, awayName:G.awayName,
     homeTeamId:G.homeTeamId||null, awayTeamId:G.awayTeamId||null,
@@ -4575,7 +4582,7 @@ function calcGameStats(cellRow) {
     if (r==='1B'){s.h++;s.singles++;}
     else if(r==='2B'){s.h++;s.doubles++;}
     else if(r==='3B'){s.h++;s.triples++;}
-    else if(r==='HR'){s.h++;s.hr++;s.r++; /* HR batter scores */}
+    else if(r==='HR'){s.h++;s.hr++;/* HR batter run already counted via c.scored above */}
     else if(r==='BB')s.bb++;
     else if(r==='HBP')s.hbp++;
     else if(r==='K'||r==='Kl')s.k++;
@@ -5371,8 +5378,8 @@ function updateActivePitcherFromPlay(result, outSeq, rbi, scored) {
 
   // Runs allowed — any scored run while this pitcher is active
   if (scored) p.runs++;
-  // HR batter scores too + RBI runners
-  if (result === 'HR') p.runs += (rbi || 1); // HR batter + RBI
+  // On HR, also add the runners who scored (rbi includes the HR batter, so subtract 1)
+  if (result === 'HR') p.runs += Math.max(0, (rbi || 1) - 1);
 
   persist();
   renderPitcherList();
@@ -5937,7 +5944,7 @@ function sgRender() {
         const c = row && row[innIdx];
         if (!c) return;
         if (c.scored) r++;
-        if (c.rbi) r += c.rbi;
+        if (c.rbi) r += (c.result==='HR' ? Math.max(0,c.rbi-1) : c.rbi);
       });
       return r;
     };
