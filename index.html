@@ -6845,6 +6845,31 @@ function sgExecuteSteal(fromBase, result) {
       showToast('🏃 Runner stole home!');
     } else {
       const toKey = baseTo === '2B' ? 'second' : 'third';
+
+      // ── If destination is occupied, cascade the steal forward ──
+      // (real baseball: lead runners must also advance — double/triple steal)
+      if (SG.runners[toKey]) {
+        // Cascade from the lead runner forward
+        if (fromBase === 'first') {
+          // 1st steals 2nd, but 2nd is occupied → 2nd must go to 3rd
+          if (SG.runners.third) {
+            // 3rd is also occupied → 3rd must steal home (triple steal)
+            sgMarkRunnerScored(SG.runners.third);
+            SG.runners.third = null;
+            sgCommitToScorecard('SB', [], 'Home', false, 0);
+          }
+          // Move 2nd → 3rd
+          SG.runners.third = SG.runners.second;
+          SG.runners.second = null;
+          sgCommitToScorecard('SB', [], '3B', false, 0);
+        } else if (fromBase === 'second') {
+          // 2nd steals 3rd, but 3rd is occupied → 3rd must steal home
+          sgMarkRunnerScored(SG.runners.third);
+          SG.runners.third = null;
+          sgCommitToScorecard('SB', [], 'Home', false, 0);
+        }
+      }
+
       SG.runners[fromBase] = null;
       SG.runners[toKey] = runner;
       sgCommitToScorecard('SB', [], baseTo, false, 0);
