@@ -434,6 +434,9 @@ select.form-input{appearance:none;}
   </div>
 </div>
 
+<!-- Cloud sync status (only shown when launched from CoachConnect Pro) -->
+<div id="ccpSyncBadge" style="display:none;align-items:center;justify-content:center;gap:6px;margin:6px 14px 0;padding:5px 10px;border:1px solid transparent;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:1px;text-transform:uppercase;"></div>
+
 <!-- Score Banner -->
 <div class="score-banner" id="scoreBanner">
   <div class="team-score">
@@ -2150,7 +2153,81 @@ function ccpSaveToCloud(){
     game_status: G.gameOver ? 'final' : (G.currentInning > 1 || s.home > 0 || s.away > 0 ? 'in_progress' : 'not_started'),
     updated_at: new Date().toISOString()
   };
-  CCP_SUPABASE.from('game_scores').upsert(row, {onConflict:'event_id'}).then(function(){}, function(){});
+  CCP_SYNC.state = 'saving';
+  ccpRenderSyncBadge();
+  CCP_SUPABASE.from('game_scores').upsert(row, {onConflict:'event_id'}).then(function(res){
+    if(res && res.error){ ccpOnSyncFail(); }
+    else { ccpOnSyncOk(); }
+  }, function(){ ccpOnSyncFail(); });
+}
+
+// ── Offline-resilient sync tracking ──
+var CCP_SYNC = { state:'idle', pending:false, retryTimer:null, lastOkAt:null };
+
+function ccpOnSyncOk(){
+  CCP_SYNC.state = 'ok';
+  CCP_SYNC.pending = false;
+  CCP_SYNC.lastOkAt = Date.now();
+  if(CCP_SYNC.retryTimer){ clearTimeout(CCP_SYNC.retryTimer); CCP_SYNC.retryTimer = null; }
+  ccpRenderSyncBadge();
+}
+
+function ccpOnSyncFail(){
+  // The detailed game is already safe in localStorage; only the live cloud
+  // scoreboard is behind. Mark pending and keep retrying until it lands.
+  CCP_SYNC.state = 'offline';
+  CCP_SYNC.pending = true;
+  ccpRenderSyncBadge();
+  if(!CCP_SYNC.retryTimer){
+    CCP_SYNC.retryTimer = setTimeout(function(){
+      CCP_SYNC.retryTimer = null;
+      if(CCP_SYNC.pending) ccpSaveToCloud();
+    }, 15000); // retry every 15s while a change is pending
+  }
+}
+
+function ccpRenderSyncBadge(){
+  var el = document.getElementById('ccpSyncBadge');
+  if(!el) return;
+  // Only meaningful when launched from CoachConnect Pro (cloud sync active)
+  if(!CCP_EVENT_ID){ el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  var st = CCP_SYNC.state;
+  if(st === 'offline' || CCP_SYNC.pending){
+    el.style.background = 'rgba(232,25,44,0.15)';
+    el.style.borderColor = 'rgba(232,25,44,0.5)';
+    el.style.color = '#ff6b78';
+    el.innerHTML = '<span style="font-size:9px">●</span> Offline — saved on this device';
+  } else if(st === 'saving'){
+    el.style.background = 'rgba(247,201,72,0.12)';
+    el.style.borderColor = 'rgba(247,201,72,0.4)';
+    el.style.color = '#f7c948';
+    el.innerHTML = '<span style="font-size:9px">●</span> Saving…';
+  } else {
+    el.style.background = 'rgba(34,197,94,0.12)';
+    el.style.borderColor = 'rgba(34,197,94,0.4)';
+    el.style.color = '#4ade80';
+    el.innerHTML = '<span style="font-size:9px">●</span> Live synced';
+    // Fade the "synced" badge out after a couple seconds to stay unobtrusive
+    clearTimeout(CCP_SYNC._fadeTimer);
+    CCP_SYNC._fadeTimer = setTimeout(function(){
+      if(CCP_SYNC.state==='ok' && !CCP_SYNC.pending){ el.style.opacity = '0'; }
+    }, 2500);
+    el.style.opacity = '1';
+    el.style.transition = 'opacity 0.4s';
+    return;
+  }
+  el.style.opacity = '1';
+}
+
+// When the device comes back online, immediately flush any pending sync
+if(typeof window !== 'undefined'){
+  window.addEventListener('online', function(){
+    if(CCP_SYNC.pending) ccpSaveToCloud();
+  });
+  window.addEventListener('offline', function(){
+    if(CCP_EVENT_ID){ CCP_SYNC.state='offline'; ccpRenderSyncBadge(); }
+  });
 }
 
 function ccpQueueSave(){
@@ -2182,6 +2259,8 @@ persist = function(){
 };
 
 ccpInitSync();
+// Show the initial sync badge state if launched from CoachConnect Pro
+setTimeout(function(){ if(typeof ccpRenderSyncBadge==='function') ccpRenderSyncBadge(); }, 300);
 
 // ══════════════════════════════════════════════
 //  CCP ROSTER LOADING (Phase 2: per-player stats)
