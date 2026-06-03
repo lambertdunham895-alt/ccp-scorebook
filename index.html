@@ -2153,13 +2153,36 @@ function ccpSaveToCloud(){
     game_status: G.gameOver ? 'final' : (G.currentInning > 1 || s.home > 0 || s.away > 0 ? 'in_progress' : 'not_started'),
     updated_at: new Date().toISOString()
   };
+  // Assume pending until we get a CONFIRMED success. This is the key fix:
+  // offline fetches can hang forever (never resolve/reject), so we must not
+  // wait on the promise to know whether there's still unsynced data.
+  CCP_SYNC.pending = true;
   CCP_SYNC.state = 'saving';
   CCP_SYNC._lastAttemptAt = Date.now();
   ccpRenderSyncBadge();
+
+  // If the device is known-offline, don't even attempt — just show offline.
+  if(typeof navigator !== 'undefined' && navigator.onLine === false){
+    ccpOnSyncFail();
+    return;
+  }
+
+  var settled = false;
+  var thisAttempt = CCP_SYNC._lastAttemptAt;
+  // Watchdog: if the request hasn't confirmed success within 6s, treat as failed.
+  setTimeout(function(){
+    if(settled) return;
+    // Only fail if this is still the most recent attempt and still pending
+    if(CCP_SYNC.pending && CCP_SYNC._lastAttemptAt === thisAttempt){
+      ccpOnSyncFail();
+    }
+  }, 6000);
+
   CCP_SUPABASE.from('game_scores').upsert(row, {onConflict:'event_id'}).then(function(res){
+    settled = true;
     if(res && res.error){ ccpOnSyncFail(); }
     else { ccpOnSyncOk(); }
-  }, function(){ ccpOnSyncFail(); });
+  }, function(){ settled = true; ccpOnSyncFail(); });
 }
 
 // ── Offline-resilient sync tracking ──
@@ -2175,16 +2198,10 @@ function ccpOnSyncOk(){
 
 function ccpOnSyncFail(){
   // The detailed game is already safe in localStorage; only the live cloud
-  // scoreboard is behind. Mark pending and keep retrying until it lands.
+  // scoreboard is behind. Mark pending — the heartbeat (every 3s) drives retries.
   CCP_SYNC.state = 'offline';
   CCP_SYNC.pending = true;
   ccpRenderSyncBadge();
-  if(!CCP_SYNC.retryTimer){
-    CCP_SYNC.retryTimer = setTimeout(function(){
-      CCP_SYNC.retryTimer = null;
-      if(CCP_SYNC.pending) ccpSaveToCloud();
-    }, 3000); // retry every 3s while a change is pending — feels near-instant on reconnect
-  }
 }
 
 function ccpRenderSyncBadge(){
@@ -2240,17 +2257,15 @@ if(typeof window !== 'undefined'){
   document.addEventListener('visibilitychange', function(){
     if(!document.hidden && CCP_SYNC.pending) ccpForceResync();
   });
-  // Heartbeat: every 4s, if a change is still pending, retry. This is the
-  // safety net that guarantees recovery even when 'online' never fires.
-  CCP_SYNC._lastAttemptAt = 0;
+  // Heartbeat: every 3s, if a change is still pending and the last attempt was
+  // a few seconds ago, try again. This is the safety net that guarantees
+  // recovery even when the browser 'online' event never fires.
   setInterval(function(){
     if(!CCP_EVENT_ID || !CCP_SYNC.pending) return;
-    // If a save has been "saving" for more than 8s it likely hung (offline) — retry.
-    var stuck = CCP_SYNC.state === 'saving' && (Date.now() - (CCP_SYNC._lastAttemptAt||0)) > 8000;
-    if(CCP_SYNC.state !== 'saving' || stuck){
+    if(Date.now() - (CCP_SYNC._lastAttemptAt||0) > 2500){
       ccpSaveToCloud();
     }
-  }, 4000);
+  }, 3000);
 }
 
 function ccpQueueSave(){
