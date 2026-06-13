@@ -4039,7 +4039,7 @@ function setPlayerPosition(pos) {
   player.pos = pos;
   // If they were assigned P, sync them into the pitcher list immediately.
   // The active pitcher is now DERIVED from lineup pos='P', so no key to set.
-  if (pos === 'P') ensurePitchers();
+  if (pos === 'P') { ensurePitchers(); if (typeof renderPitcherList === 'function') renderPitcherList(); }
   persist();
   closeModal('positionPickerModal');
   renderLineupPage();
@@ -4258,6 +4258,13 @@ function showTab(t){
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+t).classList.add('active');
   document.getElementById('tab-'+t).classList.add('active');
+  // Refresh the Pitching tab on open so pitchers assigned in the Lineup
+  // (and any mid-game P changes) show up immediately.
+  if(t==='pitching'){
+    try{ if(typeof ensurePitchers==='function') ensurePitchers(); }catch(e){}
+    try{ if(typeof renderPitcherList==='function') renderPitcherList(); }catch(e){}
+    try{ if(typeof renderActivePitcherBanner==='function') renderActivePitcherBanner(); }catch(e){}
+  }
 }
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
